@@ -1,0 +1,8 @@
+{
+  "style": "semi-realistic anime digital portrait, cinematic warm lighting, soft painterly texture, subtle film grain, adult, fully clothed, no text, no watermark, no logo",
+  "images": [
+    { "id": "hero", "prompt": "confident young woman with short silver hair, black jacket, looking at viewer", "aspect": "3:4" },
+    { "id": "rival", "prompt": "young man with messy blond hair and a cool smirk, leather jacket, rim light", "aspect": "3:4" },
+    { "id": "key-art", "prompt": "two characters back to back, city lights far behind, cinematic key art", "aspect": "16:9" }
+  ]
+}

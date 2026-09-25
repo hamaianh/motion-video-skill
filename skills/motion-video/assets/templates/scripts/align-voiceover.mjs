@@ -1,29 +1,18 @@
 // Forced-aligns every voice-over clip against its spoken text (ElevenLabs align via multix)
 // and writes data/vo-lines.json: per scene, per line start/end in clip-local seconds.
 // Usage: node scripts/align-voiceover.mjs [--force]
-import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import os from "node:os";
+import { join } from "node:path";
+import { loadProviders, multix, root } from "./multix-lib.mjs";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const script = JSON.parse(readFileSync(join(root, "data/script.json"), "utf8"));
 const force = process.argv.includes("--force");
 const alignDir = join(root, "data/align");
-const workDir = join(os.tmpdir(), `${basename(root)}-multix`);
 mkdirSync(alignDir, { recursive: true });
-mkdirSync(workDir, { recursive: true });
-
-const quote = (v) => `"${String(v).replace(/"/g, '\\"')}"`;
-const run = (argv) =>
-  new Promise((ok, fail) => {
-    const child = spawn("multix", argv.map(quote), { shell: true, cwd: workDir });
-    let log = "";
-    child.stdout.on("data", (d) => (log += d));
-    child.stderr.on("data", (d) => (log += d));
-    child.on("close", (code) => (code === 0 ? ok(log) : fail(new Error(log.slice(-600)))));
-  });
+// Word timings drive the captions, SFX cues and reveals; only ElevenLabs forced alignment returns them.
+const { provider } = loadProviders().align;
+if (provider !== "elevenlabs") throw new Error(`align provider "${provider}" is not supported (use elevenlabs)`);
+const run = (argv) => multix(argv);
 
 const spoken = (line) => line.say || line.en;
 const tokens = (text) => text.split(/\s+/).filter((t) => /[\p{L}\p{N}]/u.test(t));

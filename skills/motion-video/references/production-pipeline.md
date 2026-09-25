@@ -23,6 +23,16 @@ Start the data files from `<skill>/assets/templates/data/*.example.json`.
 Keep one project per video; a restyle of an existing video is a new project dir
 so the first edition stays untouched.
 
+## 0b. Providers and keys
+
+```bash
+node <skill>/scripts/setup-providers.mjs . --show        # choices per group + missing keys
+node <skill>/scripts/setup-providers.mjs . --set voice=gemini sfx=elevenlabs music=fal align=elevenlabs image=file
+# user, in their own terminal:  node <skill>/scripts/setup-providers.mjs . --keys
+```
+
+See `providers-and-keys.md`. Every generation script below reads `data/providers.json`.
+
 ## 1. Facts and script
 
 - Collect facts only from primary sources (release notes, repo docs, code). Every
@@ -41,7 +51,8 @@ so the first edition stays untouched.
 ```bash
 node ./scripts/generate-audio-assets.mjs vo      # Gemini TTS, one WAV per scene
 node ./scripts/generate-audio-assets.mjs sfx     # ElevenLabs SFX from data/sfx.json
-node ./scripts/generate-audio-assets.mjs music   # ElevenLabs Music from music-plan.json + outro-plan.json
+node ./scripts/generate-audio-assets.mjs music   # music-plan.json + outro-plan.json (ElevenLabs direct / fal) or the supplied file
+node ./scripts/generate-images.mjs               # data/images.json -> assets/chars/*.png (skip with image=file)
 ```
 
 `--force` regenerates, `--only=id1,id2` limits to some scenes/SFX. The script runs

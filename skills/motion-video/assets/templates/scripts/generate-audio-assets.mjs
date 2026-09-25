@@ -1,56 +1,48 @@
-// Generates voice-over (Gemini 3.8 Flash TTS), sound effects (ElevenLabs) and
-// background music (ElevenLabs Music composition plan) through the multix CLI.
-// MiniMax Music answers HTTP 410 for new accounts, so the music comes from data/music-plan.json;
-// run scripts/arrange-music.mjs afterwards to put its drops on the video's beats.
+// Generates voice-over, sound effects and background music through the multix CLI,
+// using the providers chosen in data/providers.json (see <skill>/scripts/setup-providers.mjs):
+//   voice: gemini | elevenlabs | openai      sfx: elevenlabs | fal      music: elevenlabs | fal | file
+// Run scripts/arrange-music.mjs afterwards to put the music's drops on the video's beats.
 // Usage: node scripts/generate-audio-assets.mjs <vo|sfx|music|all> [--force] [--only=id1,id2]
-import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import os from "node:os";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { fal, ffmpegCopy, loadProviders, multix, pool, root, workDir } from "./multix-lib.mjs";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const script = JSON.parse(readFileSync(join(root, "data/script.json"), "utf8"));
 const sfxSpec = JSON.parse(readFileSync(join(root, "data/sfx.json"), "utf8"));
+const P = loadProviders();
 const args = process.argv.slice(2);
 const mode = args[0] || "all";
 const force = args.includes("--force");
 const only = (args.find((a) => a.startsWith("--only=")) || "").slice(7).split(",").filter(Boolean);
-// multix drops a copy of every output into ./multix-output; keep that out of the project.
-const workDir = join(os.tmpdir(), `${basename(root)}-multix`);
-mkdirSync(workDir, { recursive: true });
 
-const quote = (v) => `"${String(v).replace(/"/g, '\\"')}"`;
-
-function multix(argv) {
-  return new Promise((ok, fail) => {
-    const child = spawn("multix", argv.map(quote), { shell: true, cwd: workDir });
-    let log = "";
-    child.stdout.on("data", (d) => (log += d));
-    child.stderr.on("data", (d) => (log += d));
-    child.on("close", (code) => (code === 0 ? ok(log) : fail(new Error(`multix ${argv[0]} ${argv[1]} failed (${code}):\n${log.slice(-800)}`))));
-  });
-}
-
-async function pool(items, size, fn) {
-  const queue = [...items];
-  const workers = Array.from({ length: size }, async () => {
-    while (queue.length) await fn(queue.shift());
-  });
-  await Promise.all(workers);
+async function speak(text, style, out) {
+  const v = P.voice;
+  const model = v.model || script.voice.model;
+  const voice = v.voice || script.voice.voice;
+  if (v.provider === "gemini") {
+    await multix(["gemini", "generate-speech", "--model", model, "--voice", voice, "--style", style, "--text", text, "--output", out]);
+  } else if (v.provider === "openai") {
+    await multix(["openai", "generate-speech", "--model", model, "--voice", voice, "--instructions", style, "--output-format", "wav", "--text", text, "--output", out]);
+  } else if (v.provider === "elevenlabs") {
+    // ElevenLabs takes no sentence-style direction; the delivery comes from the voice itself.
+    const mp3 = join(workDir, `${Date.now()}-${Math.random().toString(36).slice(2)}.mp3`);
+    await multix(["elevenlabs", "tts", "--model", model, "--voice", voice, "--format", "mp3_44100_192", "--text", text, "--output", mp3]);
+    await ffmpegCopy(mp3, out);
+    rmSync(mp3, { force: true });
+  } else throw new Error(`voice provider "${v.provider}" is not supported`);
 }
 
 async function genVo() {
   const dir = join(root, "assets/audio/vo");
   mkdirSync(dir, { recursive: true });
   const scenes = script.scenes.filter((s) => !only.length || only.includes(s.id));
-  await pool(scenes, 4, async (s) => {
+  // one request at a time: free tiers rate-limit TTS per minute
+  await pool(scenes, P.voice.provider === "gemini" ? 1 : 3, async (s) => {
     const out = join(dir, `${s.id}.wav`);
     if (existsSync(out) && !force) return console.log(`skip vo ${s.id}`);
     const text = s.lines.map((l) => l.say || l.en).join(" ");
-    const style = s.outro ? script.outroStyle : script.voice.style;
-    await multix(["gemini", "generate-speech", "--model", script.voice.model, "--voice", script.voice.voice, "--style", style, "--text", text, "--output", out]);
-    console.log(`vo ${s.id} -> ${out}`);
+    await speak(text, s.outro ? script.outroStyle : script.voice.style, out);
+    console.log(`vo ${s.id} -> ${out} (${P.voice.provider})`);
   });
 }
 
@@ -61,20 +53,35 @@ async function genSfx() {
   await pool(list, 4, async (s) => {
     const out = join(dir, `${s.id}.mp3`);
     if (existsSync(out) && !force) return console.log(`skip sfx ${s.id}`);
-    await multix(["elevenlabs", "sfx", "--text", s.prompt, "--duration-seconds", s.duration, "--prompt-influence", "0.6", "--output", out]);
-    console.log(`sfx ${s.id} -> ${out}`);
+    if (P.sfx.provider === "elevenlabs") {
+      await multix(["elevenlabs", "sfx", "--text", s.prompt, "--duration-seconds", s.duration, "--prompt-influence", "0.6", "--output", out]);
+    } else if (P.sfx.provider === "fal") {
+      await fal(P.sfx.model || "fal-ai/elevenlabs/sound-effects/v2", { text: s.prompt, duration_seconds: s.duration, prompt_influence: 0.6, output_format: "mp3_44100_128" }, out);
+    } else throw new Error(`sfx provider "${P.sfx.provider}" is not supported`);
+    console.log(`sfx ${s.id} -> ${out} (${P.sfx.provider})`);
   });
 }
 
 async function composeMusic(plan, file) {
   const out = join(root, "assets/audio/music", file);
+  if (P.music.provider === "file") {
+    if (!existsSync(out)) throw new Error(`music provider "file": put your licensed track at ${out}`);
+    return console.log(`music ${file}: using the supplied file`);
+  }
   if (existsSync(out) && !force) return console.log(`skip music ${file}`);
-  const log = await multix(["elevenlabs", "music", "--plan", join(root, "data", plan), "--format", "mp3_44100_192", "--output", out, "--verbose"]);
-  console.log(log.split("\n").slice(-6).join("\n"));
+  if (P.music.provider === "elevenlabs") {
+    const log = await multix(["elevenlabs", "music", "--plan", join(root, "data", plan), "--format", "mp3_44100_192", "--output", out, "--verbose"]);
+    console.log(log.split("\n").slice(-6).join("\n"));
+  } else if (P.music.provider === "fal") {
+    const compositionPlan = JSON.parse(readFileSync(join(root, "data", plan), "utf8"));
+    await fal(P.music.model || "fal-ai/elevenlabs/music", { composition_plan: compositionPlan, respect_sections_durations: true, force_instrumental: true, output_format: "mp3_44100_192" }, out);
+    console.log(`music ${file} -> ${out} (fal)`);
+  } else throw new Error(`music provider "${P.music.provider}" is not supported`);
 }
 
 // The main track fades out before the ending, so the calm outro bed is a separate composition.
 async function genMusic() {
+  mkdirSync(join(root, "assets/audio/music"), { recursive: true });
   await composeMusic("music-plan.json", "bgm-raw.mp3");
   await composeMusic("outro-plan.json", "outro-raw.mp3");
 }

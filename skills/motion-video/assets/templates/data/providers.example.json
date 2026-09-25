@@ -1,0 +1,7 @@
+{
+  "voice": { "provider": "gemini", "model": "gemini-3.8-flash-tts", "voice": "Fenrir" },
+  "sfx": { "provider": "elevenlabs" },
+  "music": { "provider": "fal", "model": "fal-ai/elevenlabs/music" },
+  "align": { "provider": "elevenlabs" },
+  "image": { "provider": "file" }
+}

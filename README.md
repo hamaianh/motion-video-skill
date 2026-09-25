@@ -135,6 +135,20 @@ locations work, depending on the agent and the scope you want:
 | The `multix` CLI, authenticated with a Gemini key and an ElevenLabs key | Voice-over, sound effects, music composition plans and forced alignment. |
 | `npx --yes hyperframes@0.7.99` | Lint, check, snapshot, preview and render. No install step is needed. |
 
+### Providers and keys
+
+Each video starts by choosing one provider per group — voice (TTS), sound effects, music,
+word alignment and images (with the image aspect ratio: 9:16, 16:9, 1:1, 4:3, 3:4). Run this in
+your own terminal; keys are typed hidden and saved to `~/.multix/.env`:
+
+```bash
+node skills/motion-video/scripts/setup-providers.mjs <project>          # choose groups + enter keys
+node skills/motion-video/scripts/setup-providers.mjs <project> --show   # current choices, missing keys
+```
+
+See `skills/motion-video/references/providers-and-keys.md` for options, required key
+permissions and common errors (free-tier limits, paid-only music, empty balances).
+
 Keep API keys in the `multix` CLI's own configuration. The skill never prints key values
 and never writes them into project files, plans or reports.
 

@@ -34,8 +34,10 @@ new video from `assets/templates/index-skeleton.html` plus the style reference.
 This skill handles:
 - New videos in either style, restyles of an existing video as a separate project,
   and partial reworks (new music, re-timed drops, re-mix, re-render, social encode).
-- Audio through the `multix` CLI: Gemini TTS voice, ElevenLabs SFX, ElevenLabs
-  Music composition plans, ElevenLabs forced alignment.
+- Audio and stills through the `multix` CLI with a provider chosen per group:
+  voice (Gemini / ElevenLabs / OpenAI TTS), SFX (ElevenLabs direct or via fal.ai),
+  music (ElevenLabs Music direct or via fal.ai, or a supplied track), ElevenLabs
+  forced alignment, and images (Gemini, OpenAI, Codex, fal.ai or supplied files).
 
 This skill does NOT handle:
 - Generative text-to-video footage (use `multix` Seedance/Veo directly).
@@ -45,6 +47,12 @@ This skill does NOT handle:
 
 ## How to work
 
+0. Confirm providers and keys, grouped so nothing is forgotten: voice (TTS),
+   SFX, music, word alignment, images. Follow `references/providers-and-keys.md`:
+   run `scripts/setup-providers.mjs <project> --show`, ask one question per
+   group, save with `--set`, and have the user enter missing keys themselves with
+   `--keys` in their own terminal. Do this on every new video, even if a previous
+   project already has choices, because plans, balances and key permissions change.
 1. Pin the outcome before touching files: topic and sources, style (one of the
    two, or a new one derived from them), duration, voice language (English VO +
    Vietnamese captions by default), ending, signature. Ask only if the style or
@@ -66,8 +74,8 @@ This skill does NOT handle:
 6. Finish only when every check in "Done when" passes; report measured numbers,
    not impressions.
 
-Keep credentials inside multix's own config. Never print API keys or copy them
-into project files, plans or reports.
+Keep credentials inside multix's own config (`~/.multix/.env`). Never ask for keys
+in chat, print them, or copy them into project files, plans or reports.
 
 ## Done when
 
@@ -89,6 +97,10 @@ into project files, plans or reports.
   scene windows, captions, mascot, renderer limits, signature.
 - `references/style-glass-keynote.md` / `references/style-comic-spiderverse.md`:
   tokens, fonts, layers, components, transitions and caption look per style.
+- `references/providers-and-keys.md`: the five provider groups, their options,
+  keys, permissions and the errors each one produces.
+- `scripts/setup-providers.mjs <project> [--show|--keys|--set g=opt[:model]]`:
+  choose a provider per group (`data/providers.json`) and store keys hidden.
 - `scripts/fit-beat-grid.py <music> [--min-bpm N --max-bpm N]`: BPM, BEAT0 and a
   per-bar kick/energy table.
 - `scripts/verify-arrangement.py <project> [--tolerance-ms 2]`: splice lag per
@@ -97,6 +109,6 @@ into project files, plans or reports.
   from `build-timeline.mjs --stems`.
 - `scripts/tests/`: `python -m unittest discover -s scripts/tests` (needs
   ffmpeg, numpy, scipy).
-- `assets/templates/`: project scripts (`generate-audio-assets`,
-  `align-voiceover`, `arrange-music`, `build-timeline`), example data files and
-  the composition skeleton.
+- `assets/templates/`: project scripts (`multix-lib`, `generate-audio-assets`,
+  `generate-images`, `align-voiceover`, `arrange-music`, `build-timeline`),
+  example data files (incl. `providers`, `images`) and the composition skeleton.
