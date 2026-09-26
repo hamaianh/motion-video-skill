@@ -14,6 +14,8 @@
     <style>
       /* Fonts must be local files under assets/fonts so renders are deterministic. */
       @font-face { font-family: "Be Vietnam Pro"; src: url("assets/fonts/BeVietnamPro-Bold.ttf") format("truetype"); font-weight: 700; font-display: block; }
+      /* Vietnamese-capable handwriting fallback for Permanent Marker (which has no Vietnamese glyphs) */
+      @font-face { font-family: "Pangolin"; src: url("assets/fonts/Pangolin-Regular.ttf") format("truetype"); font-display: block; }
       :root { --bg: #070817; --ink: #f5f3ff; --accent: #c4b5fd; }
       * { box-sizing: border-box; }
       html, body { margin: 0; background: var(--bg); }
@@ -73,10 +75,14 @@
         const SC = T.scenes;
         const B = (n) => T.beat0 + T.beatLen * n; // time of quarter note n
         const isKick = (n) => T.kick.some(([a, b]) => n >= a && n < b);
+        // Anchors are written in English. When the voice speaks another language, the English word is
+        // mapped to the spoken word at the same relative position of its line (like the captions).
         const hit = (sid, word, nth) => {
           const h = SC[sid].lines.flatMap((l) => l.words).filter((w) => w[0] === word)[nth - 1];
-          if (!h) console.warn(`[timing] "${word}" #${nth} missing in ${sid}`);
-          return h;
+          if (h) return h;
+          const r = SC[sid].lines.flatMap((l) => (l.ref || []).map((x, k) => ({ x, l, k }))).filter((o) => o.x === word)[nth - 1];
+          if (r) return r.l.words[Math.min(r.l.words.length - 1, Math.floor((r.k * r.l.words.length) / r.l.ref.length))];
+          console.warn(`[timing] "${word}" #${nth} missing in ${sid}`);
         };
         const W = (sid, word, nth = 1) => (hit(sid, word, nth) || [0, SC[sid].start])[1]; // word onset
         const WE = (sid, word, nth = 1) => (hit(sid, word, nth) || [0, 0, SC[sid].start])[2]; // word end
@@ -126,6 +132,14 @@
         applyLayout();
         // caption band per format: keep it clear of platform UI (TikTok/Reels cover the bottom ~420 px of 9:16)
         const CAPTION_BAND = { "16x9": { bottom: 44, width: 1660, maxWidth: 1400 }, "9x16": { bottom: 420, width: 1080, maxWidth: 960 }, "1x1": { bottom: 30, width: 1080, maxWidth: 1000 }, "4x5": { bottom: 40, width: 1080, maxWidth: 1000 } }[FMT];
+
+        // ---------- language (setup group 7): on-screen text follows the voice language ----------
+        // Give every visible string a translation: <div class="kick" data-vi="CÂU CHUYỆN">YOUR STORY</div>.
+        const LANG = (T.lang && T.lang.voice) || "en";
+        document.documentElement.lang = LANG;
+        if (LANG !== "en") $$(`[data-${LANG}]`).forEach((e) => (e.innerHTML = e.dataset[LANG]));
+        // fonts without Vietnamese glyphs (Permanent Marker) fall back to one that has them
+        if (LANG === "vi") $$("#root *").forEach((e) => { if (/Permanent Marker/.test(getComputedStyle(e).fontFamily)) e.style.fontFamily = '"Pangolin", sans-serif'; });
 
         // headline words become spans for staggered entrances (build the DOM before any tween)
         $$(".hl").forEach((h) => (h.innerHTML = h.textContent.trim().split(/\s+/).map((w) => `<span class="w">${w}</span>`).join(" ")));

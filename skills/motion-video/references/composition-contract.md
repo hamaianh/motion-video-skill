@@ -19,8 +19,10 @@ at `assets/templates/index-skeleton.html` implements all of them.
 
 ## Output formats
 
-One `index.html` renders every format chosen in setup group 6 (`output.formats` in
-`data/providers.json`): 16:9 1920×1080, 9:16 1080×1920, 1:1 1080×1080, 4:5 1080×1350.
+Setup group 6 picks the one format a project renders (`output.format`): 16:9 1920×1080,
+9:16 1080×1920, 1:1 1080×1080 or 4:5 1080×1350. Author the layout for that format (inline
+positions). The `LAYOUT` machinery below lets the same composition carry more formats when a
+later edition needs them.
 
 - `scripts/set-format.mjs <aspect>` rewrites `#root` `data-width` / `data-height` /
   `data-format` (`16x9`, `9x16`, `1x1`, `4x5`), `data-resolution` and the viewport.
@@ -49,6 +51,21 @@ One `index.html` renders every format chosen in setup group 6 (`output.formats` 
 Vertical layouts stack what 16:9 puts side by side: 2×2 card grids instead of a row of four,
 brains/options as full-width rows, portrait above text. Review snapshots of every format;
 `check` passing is necessary but does not catch a cramped or empty-looking frame.
+
+## Language
+
+Setup group 7 sets `TIMING.lang = { voice, captions }`.
+
+- Every visible string carries its translation: `<div class="kick" data-vi="CÂU CHUYỆN">YOUR STORY</div>`;
+  inner HTML is allowed (`data-vi='<span class="k">tone</span>: …'`). The swap runs before
+  headline word-splitting, when the voice language is not English. Keep brand names untranslated.
+- Word anchors stay in English (`data-w="forget"`, `W(sid, "forget")`, cue `word`). With a
+  Vietnamese voice the English word maps to the spoken word at the same relative position of
+  its line (`TIMING.scenes[*].lines[*].ref` holds the English tokens). An exact Vietnamese word
+  also works as an anchor.
+- Check glyph coverage: Anton, Bangers, Be Vietnam Pro, Cormorant, JetBrains Mono have Vietnamese;
+  Permanent Marker does not, so it falls back to Pangolin (`assets/fonts/Pangolin-Regular.ttf`).
+- Vietnamese strings run longer: re-check wraps and overlaps with snapshots of that edition.
 
 ## Determinism
 

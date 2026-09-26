@@ -1,5 +1,5 @@
-// Validates, renders and verifies the composition in every output format chosen in
-// data/providers.json ("output": { "formats": ["16:9", "9:16", ...] }), one after the other:
+// Validates, renders and verifies the composition in the output format chosen in setup group 6
+// (data/providers.json "output": { "format": "9:16" }). Pass --formats=16:9,1:1 to render extra formats:
 // set-format -> lint -> check -> (snapshot | render -> remux mix -> social encode -> ffprobe/loudness/black check).
 // index.html is switched back to the first format at the end.
 // Usage: node scripts/render-formats.mjs [--formats=16:9,9:16] [--snapshot=2,18.5,40] [--name=slug]
@@ -10,7 +10,7 @@ import { loadProviders, root } from "./multix-lib.mjs";
 import { FORMATS, setFormat } from "./set-format.mjs";
 
 const arg = (k) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || "").split("=")[1];
-const formats = (arg("formats") || (loadProviders().output?.formats || ["16:9"]).join(",")).split(",").filter(Boolean);
+const formats = (arg("formats") || loadProviders().output.format).split(",").filter(Boolean);
 const snapshotAt = arg("snapshot");
 const name = arg("name") || basename(root);
 const HF = ["--yes", "hyperframes@0.7.99"];

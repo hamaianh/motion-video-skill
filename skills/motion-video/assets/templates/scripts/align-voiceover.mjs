@@ -3,33 +3,39 @@
 // Usage: node scripts/align-voiceover.mjs [--force]
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { loadProviders, multix, root } from "./multix-lib.mjs";
+import { loadProviders, multix, root, spokenText } from "./multix-lib.mjs";
 
 const script = JSON.parse(readFileSync(join(root, "data/script.json"), "utf8"));
 const force = process.argv.includes("--force");
 const alignDir = join(root, "data/align");
 mkdirSync(alignDir, { recursive: true });
 // Word timings drive the captions, SFX cues and reveals; only ElevenLabs forced alignment returns them.
-const { provider } = loadProviders().align;
+const P = loadProviders();
+const { provider } = P.align;
 if (provider !== "elevenlabs") throw new Error(`align provider "${provider}" is not supported (use elevenlabs)`);
 const run = (argv) => multix(argv);
 
-const spoken = (line) => line.say || line.en;
+const spoken = (line) => spokenText(line, P.language.voice);
 const tokens = (text) => text.split(/\s+/).filter((t) => /[\p{L}\p{N}]/u.test(t));
 
+// alignments of another language are stale
+const marker = join(alignDir, ".lang");
+const stale = existsSync(marker) && readFileSync(marker, "utf8").trim() !== P.language.voice;
 const queue = [...script.scenes];
 await Promise.all(
   Array.from({ length: 4 }, async () => {
     while (queue.length) {
       const s = queue.shift();
       const out = join(alignDir, `${s.id}.json`);
-      if (existsSync(out) && !force) continue;
+      if (existsSync(out) && !force && !stale) continue;
       const text = s.lines.map(spoken).join(" ");
       await run(["elevenlabs", "align", "--input", join(root, `assets/audio/vo/${s.id}.wav`), "--text", text, "--output", out]);
       console.log(`aligned ${s.id}`);
     }
   }),
 );
+
+writeFileSync(marker, P.language.voice);
 
 // Map aligned words back onto script lines by token count (alignment keeps text order).
 const result = {};

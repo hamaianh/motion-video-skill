@@ -7,7 +7,7 @@
 // Usage: node scripts/build-timeline.mjs [--no-audio] [--dry] [--stems]
 // Template from the motion-video skill: edit the block marked EDIT (grid sections, anchors, duration) per project.
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import os from "node:os";
@@ -15,6 +15,8 @@ import os from "node:os";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const readJson = (p) => JSON.parse(readFileSync(join(root, p), "utf8"));
 const script = readJson("data/script.json");
+// setup group 7: voice language (en | vi) and caption language (vi | en | none)
+const LANG = { voice: "en", captions: "vi", ...((existsSync(join(root, "data/providers.json")) && readJson("data/providers.json").language) || {}) };
 const vo = readJson("data/vo-lines.json");
 const noAudio = process.argv.includes("--no-audio");
 const dry = process.argv.includes("--dry"); // print the schedule only
@@ -99,7 +101,9 @@ for (const s of script.scenes) {
       on: at(l.start),
       off: at(l.end),
       words: l.words.map((w) => [norm(w.t), round(at(w.s)), round(at(w.e))]),
-      vi: s.lines[i].vi,
+      cap: LANG.captions === "none" ? null : s.lines[i][LANG.captions],
+      // the English script tokens: word anchors ("forget") are written in English and mapped by position when the voice is not
+      ref: s.lines[i].en.split(/\s+/).map(norm).filter(Boolean),
     });
   });
   prevVoEnd = lines[lines.length - 1].segEnd;
@@ -118,13 +122,15 @@ for (const s of scenes) {
   for (const l of s.lines) if (l.segEnd > s.end + 0.01) console.warn(`${s.id}: voice runs past its scene end (${l.segEnd.toFixed(2)} > ${s.end.toFixed(2)})`);
 }
 
-// ---------- 2. Vietnamese captions ----------
-// Each VI word borrows the onset of the proportionally matching EN word; long lines are split at punctuation.
+// ---------- 2. karaoke captions (language from setup group 7) ----------
+// Each caption word borrows the onset of the proportionally matching spoken word (1:1 when caption and
+// voice share a language and tokenise the same); long lines are split at punctuation.
 const MAX_CHUNK = 9;
 const captions = [];
 for (const s of scenes) {
   for (const l of s.lines) {
-    const toks = l.vi.split(/\s+/).filter(Boolean);
+    if (!l.cap) continue;
+    const toks = l.cap.split(/\s+/).filter(Boolean);
     const en = l.words;
     const words = toks.map((t, i) => ({ t, s: en[Math.min(en.length - 1, Math.floor((i * en.length) / toks.length))][1] }));
     for (let i = 1; i < words.length; i++) if (words[i].s <= words[i - 1].s) words[i].s = round(words[i - 1].s + 0.07);
@@ -152,8 +158,12 @@ const wordTime = (sceneId, word, nth = 1) => {
   const s = scenes.find((x) => x.id === sceneId);
   if (!s) throw new Error(`cue: unknown scene ${sceneId}`);
   const hits = s.lines.flatMap((l) => l.words).filter((w) => w[0] === word);
-  if (hits.length < nth) throw new Error(`cue: "${word}" #${nth} not found in ${sceneId}`);
-  return hits[nth - 1][1];
+  if (hits.length >= nth) return hits[nth - 1][1];
+  // not spoken as-is (other voice language): take the spoken word at the same relative position of its line
+  const refs = s.lines.flatMap((l) => l.ref.map((r, k) => ({ r, l, k }))).filter((x) => x.r === word);
+  if (refs.length < nth) throw new Error(`cue: "${word}" #${nth} not found in ${sceneId}`);
+  const { l, k } = refs[nth - 1];
+  return l.words[Math.min(l.words.length - 1, Math.floor((k * l.words.length) / l.ref.length))][1];
 };
 const sfxEvents = cues.map((c) => {
   let t;
@@ -285,8 +295,9 @@ const timing = {
   drops: DROPS,
   outroBeat: OUTRO_BEAT,
   scenes: Object.fromEntries(
-    scenes.map((s) => [s.id, { start: round(s.start), end: round(s.end), lines: s.lines.map((l) => ({ on: round(l.on), off: round(l.off), words: l.words })) }]),
+    scenes.map((s) => [s.id, { start: round(s.start), end: round(s.end), lines: s.lines.map((l) => ({ on: round(l.on), off: round(l.off), words: l.words, ref: l.ref })) }]),
   ),
+  lang: LANG,
   captions: captions.map((c) => ({ start: c.start, end: c.end, words: c.words.map((w) => [w.t, w.s]) })),
   sfx: sfxEvents,
   env,

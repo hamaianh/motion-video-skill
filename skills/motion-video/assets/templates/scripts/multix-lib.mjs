@@ -15,14 +15,20 @@ const DEFAULTS = {
   music: { provider: "elevenlabs" },
   align: { provider: "elevenlabs" },
   image: { provider: "file" },
-  output: { formats: ["16:9"] }, // video formats to render: 16:9, 9:16, 1:1, 4:5
+  output: { format: "16:9" }, // the one video format to render: 16:9, 9:16, 1:1, 4:5
+  language: { voice: "en", captions: "vi" }, // voice: en | vi · captions: vi | en | none
 };
 
 export function loadProviders() {
   const file = join(root, "data/providers.json");
   const chosen = existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : {};
-  return Object.fromEntries(Object.entries(DEFAULTS).map(([k, v]) => [k, { ...v, ...(chosen[k] || {}) }]));
+  const p = Object.fromEntries(Object.entries(DEFAULTS).map(([k, v]) => [k, { ...v, ...(chosen[k] || {}) }]));
+  if (chosen.output?.formats && !chosen.output.format) p.output.format = chosen.output.formats[0]; // older multi-format files
+  return p;
 }
+
+// Text the narrator speaks for a script line in the chosen voice language (`say*` = pronunciation override).
+export const spokenText = (line, lang) => (lang === "vi" ? line.say_vi || line.vi : line.say || line.en);
 
 // multix drops a copy of every output into ./multix-output; keep that out of the project.
 export const workDir = join(os.tmpdir(), `${basename(root)}-multix`);

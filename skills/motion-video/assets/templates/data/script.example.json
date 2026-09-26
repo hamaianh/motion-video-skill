@@ -14,7 +14,8 @@
         {
           "en": "Yo! Acme presents: version 1.2.",
           "say": "Yo! Acme presents: version one point two.",
-          "vi": "Yo! Acme giới thiệu: phiên bản 1.2."
+          "vi": "Yo! Acme giới thiệu: phiên bản 1.2.",
+          "say_vi": "Yo! Acme giới thiệu: phiên bản một chấm hai."
         },
         { "en": "One app. Three new powers.", "vi": "Một app. Ba siêu năng lực mới." }
       ]

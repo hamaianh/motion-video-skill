@@ -3,9 +3,9 @@
 //   voice: gemini | elevenlabs | openai      sfx: elevenlabs | fal      music: elevenlabs | fal | file
 // Run scripts/arrange-music.mjs afterwards to put the music's drops on the video's beats.
 // Usage: node scripts/generate-audio-assets.mjs <vo|sfx|music|all> [--force] [--only=id1,id2]
-import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { fal, ffmpegCopy, loadProviders, multix, pool, root, workDir } from "./multix-lib.mjs";
+import { fal, ffmpegCopy, loadProviders, multix, pool, root, spokenText, workDir } from "./multix-lib.mjs";
 
 const script = JSON.parse(readFileSync(join(root, "data/script.json"), "utf8"));
 const sfxSpec = JSON.parse(readFileSync(join(root, "data/sfx.json"), "utf8"));
@@ -36,14 +36,22 @@ async function genVo() {
   const dir = join(root, "assets/audio/vo");
   mkdirSync(dir, { recursive: true });
   const scenes = script.scenes.filter((s) => !only.length || only.includes(s.id));
+  // clips spoken in another language are stale: regenerate them all when the voice language changes
+  const marker = join(dir, ".lang");
+  const stale = existsSync(marker) && readFileSync(marker, "utf8").trim() !== P.language.voice;
+  if (stale) console.log(`voice language changed to ${P.language.voice}: regenerating every clip`);
   // one request at a time: free tiers rate-limit TTS per minute
   await pool(scenes, P.voice.provider === "gemini" ? 1 : 3, async (s) => {
     const out = join(dir, `${s.id}.wav`);
-    if (existsSync(out) && !force) return console.log(`skip vo ${s.id}`);
-    const text = s.lines.map((l) => l.say || l.en).join(" ");
-    await speak(text, s.outro ? script.outroStyle : script.voice.style, out);
-    console.log(`vo ${s.id} -> ${out} (${P.voice.provider})`);
+    if (existsSync(out) && !force && !stale) return console.log(`skip vo ${s.id}`);
+    const lang = P.language.voice;
+    const text = s.lines.map((l) => spokenText(l, lang)).join(" ");
+    // style prompts are written in English; tell the narrator which language to speak
+    const style = (s.outro ? script.outroStyle : script.voice.style) + (lang === "vi" ? " Speak natural, fluent Vietnamese." : "");
+    await speak(text, style, out);
+    console.log(`vo ${s.id} -> ${out} (${P.voice.provider}, ${lang})`);
   });
+  writeFileSync(marker, P.language.voice);
 }
 
 async function genSfx() {

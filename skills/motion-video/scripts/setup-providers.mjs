@@ -5,7 +5,7 @@
 //   node <skill>/scripts/setup-providers.mjs [project]            interactive: every group, then the keys it needs
 //   node <skill>/scripts/setup-providers.mjs [project] --keys     interactive: only the keys for the current choices
 //   node <skill>/scripts/setup-providers.mjs [project] --show     print choices + which keys are set/missing (safe for agents)
-//   node <skill>/scripts/setup-providers.mjs [project] --set voice=gemini music=fal image=gemini aspect=9:16 format=16:9,9:16 ...
+//   node <skill>/scripts/setup-providers.mjs [project] --set voice=gemini music=fal image=gemini aspect=9:16 format=9:16 lang=vi/vi ...
 //
 // Run the interactive modes in your own terminal: keys are typed hidden and never pass through a chat.
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -62,13 +62,23 @@ const GROUPS = [
   },
 ];
 
-// Group 6 is not a provider: the video formats render-formats.mjs renders (one composition, one LAYOUT per format).
+// Groups 6 and 7 are not providers. 6: the one video format to render. 7: voice + caption language.
 const FORMATS = [
   { id: "16:9", label: "16:9 ngang — 1920×1080", note: "YouTube, web, màn hình ngang." },
   { id: "9:16", label: "9:16 dọc — 1080×1920", note: "TikTok, Reels, Shorts, Stories. Chừa vùng UI: trên ~220 px, dưới ~420 px." },
   { id: "1:1", label: "1:1 vuông — 1080×1080", note: "Feed Facebook/Instagram, quảng cáo carousel." },
   { id: "4:5", label: "4:5 dọc — 1080×1350", note: "Feed Instagram/Facebook, chiếm nhiều màn hình nhất trong feed." },
 ];
+
+const LANGS = [
+  { voice: "en", captions: "vi", label: "Giọng tiếng Anh + phụ đề tiếng Việt", note: "Mặc định của skill." },
+  { voice: "vi", captions: "vi", label: "Giọng tiếng Việt + phụ đề tiếng Việt", note: "Phụ đề karaoke khớp đúng từng từ được đọc." },
+  { voice: "en", captions: "en", label: "Giọng tiếng Anh + phụ đề tiếng Anh", note: "Cho thị trường quốc tế." },
+  { voice: "vi", captions: "en", label: "Giọng tiếng Việt + phụ đề tiếng Anh", note: "" },
+  { voice: "en", captions: "none", label: "Giọng tiếng Anh, không phụ đề", note: "" },
+  { voice: "vi", captions: "none", label: "Giọng tiếng Việt, không phụ đề", note: "" },
+];
+const langLabel = (l) => LANGS.find((x) => x.voice === l?.voice && x.captions === l?.captions)?.label || JSON.stringify(l);
 
 // Image aspect ratios every image provider can serve (OpenAI rounds to its nearest size).
 const ASPECTS = ["9:16", "16:9", "1:1", "4:3", "3:4"];
@@ -125,8 +135,9 @@ function show() {
     const aspect = g.id === "image" && p.image?.aspect ? ` · tỉ lệ ${p.image.aspect}` : "";
     console.log(`  ${g.title}\n     → ${o ? o.label : p[g.id] ? JSON.stringify(p[g.id]) : "(chưa chọn — dùng mặc định)"}${model}${aspect}`);
   }
-  const fm = p.output?.formats || ["16:9"];
-  console.log(`  6. Kích thước video xuất\n     → ${fm.map((id) => FORMATS.find((f) => f.id === id)?.label || id).join(" · ")}`);
+  const fm = p.output?.format || p.output?.formats?.[0] || "16:9";
+  console.log(`  6. Kích thước video xuất\n     → ${FORMATS.find((f) => f.id === fm)?.label || fm}`);
+  console.log(`  7. Ngôn ngữ video\n     → ${langLabel(p.language || { voice: "en", captions: "vi" })}`);
   const keys = neededKeys(p);
   console.log(`\nKey cần cho lựa chọn hiện tại (${envFile}):`);
   if (!keys.length) console.log("  (không cần key)");
@@ -140,10 +151,14 @@ function applySets() {
   for (const s of sets) {
     const [group, value] = s.split("=");
     if (group === "format") {
-      const list = value.split(",").filter(Boolean);
-      const bad = list.filter((x) => !FORMATS.some((f) => f.id === x));
-      if (!list.length || bad.length) throw new Error(`format must be a comma list of ${FORMATS.map((f) => f.id).join(", ")}`);
-      p.output = { formats: list };
+      if (!FORMATS.some((f) => f.id === value)) throw new Error(`format must be one of ${FORMATS.map((f) => f.id).join(", ")} (one video per project run)`);
+      p.output = { format: value };
+      continue;
+    }
+    if (group === "lang") {
+      const [voice, captions] = value.split("/");
+      if (!LANGS.some((l) => l.voice === voice && l.captions === captions)) throw new Error(`lang must be voice/captions, one of ${LANGS.map((l) => `${l.voice}/${l.captions}`).join(", ")}`);
+      p.language = { voice, captions };
       continue;
     }
     if (group === "aspect") {
@@ -205,13 +220,20 @@ async function interactive(keysOnly) {
         p[g.id].aspect = ASPECTS[(parseInt(a, 10) || cur) - 1] || ASPECTS[cur - 1];
       }
     }
-    const curF = p.output?.formats || ["16:9"];
-    console.log(`\n6. Kích thước video xuất (chọn một hoặc nhiều, vd 1,2)`);
-    FORMATS.forEach((f, i) => console.log(`  ${i + 1}) ${f.label}${curF.includes(f.id) ? "  [đang chọn]" : ""}\n       ${f.note}`));
-    const defF = curF.map((id) => FORMATS.findIndex((f) => f.id === id) + 1).filter(Boolean).join(",");
+    const curF = p.output?.format || p.output?.formats?.[0] || "16:9";
+    console.log(`\n6. Kích thước video xuất (render đúng 1 video khổ này)`);
+    FORMATS.forEach((f, i) => console.log(`  ${i + 1}) ${f.label}${curF === f.id ? "  [đang chọn]" : ""}\n       ${f.note}`));
+    const defF = FORMATS.findIndex((f) => f.id === curF) + 1;
     const af = await ask(`  Chọn [${defF}]: `);
-    const picked = (af || defF).split(/[,\s]+/).map((x) => FORMATS[parseInt(x, 10) - 1]?.id).filter(Boolean);
-    p.output = { formats: [...new Set(picked.length ? picked : curF)] };
+    p.output = { format: (FORMATS[(parseInt(af, 10) || defF) - 1] || FORMATS[defF - 1]).id };
+
+    const curL = p.language || { voice: "en", captions: "vi" };
+    console.log(`\n7. Ngôn ngữ video (giọng đọc + phụ đề; chữ trên màn hình theo giọng đọc)`);
+    LANGS.forEach((l, i) => console.log(`  ${i + 1}) ${l.label}${l.voice === curL.voice && l.captions === curL.captions ? "  [đang chọn]" : ""}${l.note ? `\n       ${l.note}` : ""}`));
+    const defL = LANGS.findIndex((l) => l.voice === curL.voice && l.captions === curL.captions) + 1 || 1;
+    const al = await ask(`  Chọn [${defL}]: `);
+    const L = LANGS[(parseInt(al, 10) || defL) - 1] || LANGS[defL - 1];
+    p.language = { voice: L.voice, captions: L.captions };
     writeProviders(p);
     console.log(`\n✓ Đã lưu lựa chọn vào ${provFile}`);
   }

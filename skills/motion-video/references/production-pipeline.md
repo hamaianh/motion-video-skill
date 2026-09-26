@@ -115,16 +115,16 @@ Look at every scene's busiest moment, the caption band and the signature.
 
 ## 8. Render, restore the mix, verify
 
-For every chosen format in one go (recommended):
+In the format chosen in setup group 6 (one video):
 
 ```bash
-node ./scripts/render-formats.mjs --snapshot=2,18.5,40,80   # all formats: lint + check + snapshots/<fmt>/
-node ./scripts/render-formats.mjs                           # all formats: render, remux, social encode, verify
-node ./scripts/render-formats.mjs --formats=9:16            # just one
+node ./scripts/render-formats.mjs --snapshot=2,18.5,40,80   # lint + check + snapshots/<fmt>/
+node ./scripts/render-formats.mjs                           # render, remux, social encode, verify
+node ./scripts/render-formats.mjs --formats=16:9,1:1        # extra formats, only if LAYOUT tables exist
 ```
 
-Outputs `renders/<slug>-<fmt>.mp4` and `renders/<slug>-<fmt>-social.mp4`, then prints a table of
-size, fps, duration, LUFS, true peak and black segments per format. The manual commands below
+Outputs `renders/<slug>-<fmt>.mp4` and `renders/<slug>-<fmt>-social.mp4`, then prints size, fps,
+duration, LUFS, true peak and black segments. The manual commands below
 are what it runs for a single format.
 
 ```bash
@@ -159,6 +159,12 @@ npx --yes hyperframes@0.7.99 preview --port 3002 --no-open .
 
 Run it as a tracked background process, reuse it if the port is already held
 by this project, and stop it when the session ends.
+
+## Updating a project's scripts from the skill
+
+Copy the new `scripts/*.mjs` except `build-timeline.mjs`: its EDIT block (KICK, DROPS, OUTRO_BED,
+DURATION, ANCHORS) is project data. Merge template changes into it by hand, or copy it and
+re-apply the EDIT block, then confirm with `build-timeline.mjs --dry` that the schedule is unchanged.
 
 ## Rebuild cheatsheet
 

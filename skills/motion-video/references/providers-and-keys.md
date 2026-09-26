@@ -4,7 +4,7 @@ Every new video starts by confirming one provider per group. The choice is saved
 `<project>/data/providers.json` (no secrets); keys live only in `~/.multix/.env` (mode 600).
 The pipeline scripts read `providers.json` through `scripts/multix-lib.mjs`.
 
-## The six groups
+## The seven groups
 
 | # | Group | Options (`--set` id) | Key | Watch out |
 |---|---|---|---|---|
@@ -13,14 +13,26 @@ The pipeline scripts read `providers.json` through `scripts/multix-lib.mjs`.
 | 3 | Nhạc nền (Music) | `elevenlabs`, `fal` (fal-ai/elevenlabs/music), `file` | ELEVENLABS / FAL / — | ElevenLabs Music API is paid-plan only (Free answers 402). `file` = your own licensed track at `assets/audio/music/bgm-raw.mp3` (+ `outro-raw.mp3`). |
 | 4 | Căn thời gian từng từ | `elevenlabs` (forced alignment) | ELEVENLABS | Required; the key needs the Forced Alignment permission. |
 | 5 | Hình ảnh / nhân vật | `file`, `gemini`, `openai`, `codex`, `fal` (model id, e.g. fal-ai/flux/dev) | — / GEMINI / OPENAI / — / FAL | Gemini Free tier has an image quota of 0 (enable billing). `codex` uses the logged-in Codex CLI and its account quota. |
-| 6 | Kích thước video xuất | `16:9`, `9:16`, `1:1`, `4:5` (multi-select) | — | Each extra format needs its own LAYOUT and a snapshot review. |
+| 6 | Kích thước video xuất | `16:9`, `9:16`, `1:1`, `4:5` (one) | — | One run renders exactly one video in this format. |
+| 7 | Ngôn ngữ video | `lang=en/vi`, `vi/vi`, `en/en`, `vi/en`, `en/none`, `vi/none` (voice/captions) | — | On-screen text follows the voice language (`data-vi`). |
 
-## Group 6: video output formats
+## Group 6: video output format
 
-Not a provider: the formats `render-formats.mjs` renders. One or more of `16:9` (1920×1080),
-`9:16` (1080×1920, TikTok/Reels/Shorts), `1:1` (1080×1080, feed), `4:5` (1080×1350, feed).
-Saved as `output.formats`; set with `--set format=16:9,9:16,4:5`. Each extra format needs a
-`LAYOUT` table in the composition (see `composition-contract.md` → Output formats).
+Not a provider: the one format this project renders — `16:9` (1920×1080), `9:16` (1080×1920,
+TikTok/Reels/Shorts), `1:1` (1080×1080, feed) or `4:5` (1080×1350, feed). Saved as
+`output.format`; set with `--set format=9:16`. `render-formats.mjs` renders only that video.
+Author the composition for that format directly (see `composition-contract.md` → Output formats);
+`--formats=16:9,1:1` renders extra formats only when a `LAYOUT` table for them exists.
+
+## Group 7: video language
+
+Voice language `en` or `vi`, caption language `vi`, `en` or `none`; saved as `language`
+(`--set lang=vi/vi`). The voice speaks `line.vi` (or `say_vi`) / `line.en` (or `say`) from
+`data/script.json`, the style prompt gets a "speak Vietnamese" suffix, and captions use the
+chosen line field (1:1 word timing when voice and captions share a language). On-screen text
+follows the voice language through `data-vi` attributes. Changing the voice language
+regenerates every VO clip and alignment (a `.lang` marker detects it); prefer a separate
+project per language edition so the first one stays untouched.
 
 ## Image aspect ratio
 
