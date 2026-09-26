@@ -20,3 +20,10 @@ skills/*.zip
 # OS / editor
 .DS_Store
 Thumbs.db
+
+# Secrets and local studio state: API keys live only in ~/.multix/.env, never in git.
+.env
+.env.*
+*.env
+.studio/
+**/.studio/

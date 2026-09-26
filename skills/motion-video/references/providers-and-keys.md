@@ -8,7 +8,7 @@ The pipeline scripts read `providers.json` through `scripts/multix-lib.mjs`.
 
 | # | Group | Options (`--set` id) | Key | Watch out |
 |---|---|---|---|---|
-| 1 | Giọng đọc (TTS) | `gemini` (3.8 Flash TTS), `gemini-lite`, `elevenlabs` (eleven_v3), `openai` (gpt-4o-mini-tts) | GEMINI / ELEVENLABS / OPENAI | Gemini Free tier: 3 TTS requests/min, the script waits and retries. ElevenLabs takes no style prompt. |
+| 1 | Giọng đọc (TTS) | `gemini` (3.8 Flash TTS), `gemini-lite`, `elevenlabs` (eleven_v3), `openai` (gpt-4o-mini-tts), `fal` (ElevenLabs eleven_v3 via fal) | GEMINI / ELEVENLABS / OPENAI / FAL | Gemini Free tier: 3 TTS requests/min and 10/day. ElevenLabs Free cannot use library voices via API (402). `fal` avoids both, billed from the fal balance. ElevenLabs voices take no style prompt. |
 | 2 | Hiệu ứng âm thanh (SFX) | `elevenlabs`, `fal` (fal-ai/elevenlabs/sound-effects/v2) | ELEVENLABS / FAL | ElevenLabs key needs the Sound Effects permission. |
 | 3 | Nhạc nền (Music) | `elevenlabs`, `fal` (fal-ai/elevenlabs/music), `file` | ELEVENLABS / FAL / — | ElevenLabs Music API is paid-plan only (Free answers 402). `file` = your own licensed track at `assets/audio/music/bgm-raw.mp3` (+ `outro-raw.mp3`). |
 | 4 | Căn thời gian từng từ | `elevenlabs` (forced alignment) | ELEVENLABS | Required; the key needs the Forced Alignment permission. |
@@ -76,3 +76,6 @@ a key into the chat anyway, store it in `~/.multix/.env` without printing it and
 | `401 missing the permission sound_generation / music_generation / forced_alignment` | Scoped ElevenLabs key | New key with that permission |
 | `402 paid_plan_required` (ElevenLabs music) | Free ElevenLabs plan | Paid plan, or music via `fal` / `file` |
 | `403 User is locked. Exhausted balance` (fal) | fal.ai balance empty | Top up at fal.ai/dashboard/billing |
+| `429 … 10 requests per day` (Gemini TTS) | Gemini free-tier daily cap | Wait for the reset, bill the project, or switch voice to `fal` and regenerate every clip |
+| `402 Free users cannot use library voices via the API` | ElevenLabs Free + library voice | Paid plan, or voice via `fal` |
+| fal music `422` with `force_instrumental` / sections < 3000 ms | fal ElevenLabs Music limits | Handled by `generate-audio-assets.mjs` (flag dropped, sections clamped to 3 s) |

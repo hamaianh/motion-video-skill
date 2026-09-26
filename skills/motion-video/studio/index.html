@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Motion Video Studio</title>
+<style>
+  :root {
+    --bg: #0d0a1a; --panel: #161127; --panel2: #1e1735; --line: #2e2550; --text: #efeaff; --muted: #a79fc4;
+    --accent: #ff2e9a; --accent2: #19d3ff; --yellow: #ffd21f; --ok: #2ee59d; --warn: #ffb347; --err: #ff5470;
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) { --bg: #f6f3ff; --panel: #ffffff; --panel2: #f1ecff; --line: #ddd4f5; --text: #1b1530; --muted: #6a6190; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { display: flex; align-items: center; gap: 14px; padding: 18px 28px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); z-index: 5; }
+  header .logo { font-weight: 900; letter-spacing: .5px; font-size: 20px; }
+  header .logo b { color: var(--accent); }
+  header .ws { color: var(--muted); font-size: 12px; margin-left: auto; font-family: ui-monospace, Menlo, monospace; }
+  main { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 22px; padding: 22px 28px 60px; max-width: 1500px; margin: 0 auto; }
+  @media (max-width: 1000px) { main { grid-template-columns: 1fr; padding: 16px; } header { padding: 14px 16px; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 16px; }
+  .card h2 { margin: 0 0 14px; font-size: 15px; letter-spacing: .3px; display: flex; align-items: center; gap: 10px; }
+  .card h2 .n { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-size: 12px; font-weight: 800; flex: none; }
+  label.f { display: block; margin: 0 0 12px; }
+  label.f > span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; font-weight: 600; letter-spacing: .3px; text-transform: uppercase; }
+  input[type=text], input[type=url], input[type=password], input[type=number], textarea, select {
+    width: 100%; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font: inherit; outline: none;
+  }
+  input:focus, textarea:focus, select:focus { border-color: var(--accent2); }
+  textarea { min-height: 96px; resize: vertical; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 600px) { .row { grid-template-columns: 1fr; } }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; }
+  .tile { border: 1.5px solid var(--line); border-radius: 12px; padding: 12px; cursor: pointer; background: var(--panel2); display: flex; flex-direction: column; gap: 8px; align-items: flex-start; transition: border-color .15s, transform .15s; }
+  .tile:hover { transform: translateY(-1px); }
+  .tile.on { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+  .tile .t { font-weight: 700; font-size: 13px; }
+  .tile .d { color: var(--muted); font-size: 12px; }
+  .ratio { background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 4px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .chip { border: 1.5px solid var(--line); background: var(--panel2); color: var(--text); padding: 7px 14px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 13px; font-weight: 600; }
+  .chip.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--panel2)); }
+  .drop { border: 2px dashed var(--line); border-radius: 12px; padding: 18px; text-align: center; color: var(--muted); cursor: pointer; background: var(--panel2); }
+  .drop.over { border-color: var(--accent2); color: var(--text); }
+  .thumbs { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+  .thumb { position: relative; width: 84px; height: 112px; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); background: #000; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .thumb button { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: rgba(0,0,0,.7); color: #fff; cursor: pointer; font-size: 13px; line-height: 1; }
+  .thumb i { position: absolute; left: 4px; bottom: 4px; font-style: normal; font-size: 10px; background: rgba(0,0,0,.7); color: #fff; padding: 1px 6px; border-radius: 6px; }
+  details { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 10px; }
+  summary { cursor: pointer; color: var(--muted); font-weight: 600; font-size: 13px; margin-bottom: 10px; }
+  .keys { display: grid; gap: 10px; }
+  .key { display: grid; grid-template-columns: 250px 1fr; gap: 10px; align-items: center; }
+  @media (max-width: 600px) { .key { grid-template-columns: 1fr; } }
+  .key code { font-size: 12px; }
+  .badge { white-space: nowrap; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin-left: 6px; }
+  .badge.ok { background: color-mix(in srgb, var(--ok) 20%, transparent); color: var(--ok); }
+  .badge.miss { background: color-mix(in srgb, var(--err) 20%, transparent); color: var(--err); }
+  .btn { border: 0; border-radius: 12px; padding: 11px 18px; font: inherit; font-weight: 800; cursor: pointer; background: var(--panel2); color: var(--text); border: 1px solid var(--line); }
+  .btn.primary { background: linear-gradient(135deg, var(--accent), #b3207a); color: #fff; border: 0; font-size: 17px; padding: 15px 22px; width: 100%; letter-spacing: .5px; }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; }
+  .btn.sm { padding: 6px 12px; font-size: 12px; }
+  .note { color: var(--muted); font-size: 12px; margin: 8px 0 0; }
+  .warnbox { border: 1px solid color-mix(in srgb, var(--warn) 50%, transparent); background: color-mix(in srgb, var(--warn) 10%, transparent); border-radius: 10px; padding: 10px 12px; font-size: 13px; margin-bottom: 12px; }
+  .summary { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+  .summary b { color: var(--text); }
+  aside { position: sticky; top: 84px; align-self: start; }
+  @media (max-width: 1000px) { aside { position: static; } }
+  .jobs { display: flex; flex-direction: column; gap: 8px; max-height: 230px; overflow: auto; }
+  .job { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; background: var(--panel2); }
+  .job.sel { border-color: var(--accent2); }
+  .job .nm { font-weight: 700; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .job .mt { color: var(--muted); font-size: 11px; }
+  .st { margin-left: auto; font-size: 11px; font-weight: 800; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  .st.running, .st.queued { background: color-mix(in srgb, var(--accent2) 20%, transparent); color: var(--accent2); }
+  .st.done { background: color-mix(in srgb, var(--ok) 20%, transparent); color: var(--ok); }
+  .st.failed, .st.interrupted, .st.cancelled { background: color-mix(in srgb, var(--err) 20%, transparent); color: var(--err); }
+  .log { background: #07050f; color: #d8d0f5; font: 12px/1.55 ui-monospace, Menlo, monospace; border-radius: 10px; padding: 12px; height: 380px; overflow: auto; white-space: pre-wrap; word-break: break-word; border: 1px solid var(--line); }
+  video { width: 100%; max-height: 520px; border-radius: 10px; background: #000; margin-top: 12px; }
+  .outs a { color: var(--accent2); font-size: 13px; display: inline-block; margin-right: 12px; }
+  .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--line); padding: 10px 16px; border-radius: 10px; font-weight: 600; opacity: 0; transition: opacity .2s; z-index: 10; max-width: calc(100vw - 32px); }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Motion Video <b>Studio</b></div>
+  <div class="ws" id="ws"></div>
+</header>
+
+<main>
+  <form id="form" autocomplete="off">
+    <section class="card">
+      <h2><span class="n">1</span>Nội dung video</h2>
+      <div class="row">
+        <label class="f"><span>Tên sản phẩm / thương hiệu</span><input type="text" id="brand" placeholder="VD: Chat Janitor AI"></label>
+        <label class="f"><span>Tên project (thư mục)</span><input type="text" id="projectName" placeholder="Tự tạo từ tên sản phẩm"></label>
+      </div>
+      <label class="f"><span>Mô tả / nội dung chính</span><textarea id="description" placeholder="Sản phẩm là gì, tính năng nổi bật, thông điệp muốn truyền tải… Mọi thông tin trên màn hình sẽ lấy từ đây."></textarea></label>
+      <label class="f"><span>Tính năng / ý chính (mỗi dòng một ý, tuỳ chọn)</span><textarea id="features" style="min-height:70px" placeholder="Thousands of community-made characters&#10;Built-in voice&#10;…"></textarea></label>
+      <div class="row">
+        <label class="f"><span>Link nguồn (website, release notes)</span><input type="url" id="sourceUrl" placeholder="https://…"></label>
+        <label class="f"><span>Kêu gọi hành động (CTA)</span><input type="text" id="cta" placeholder="VD: Start free at example.com"></label>
+      </div>
+      <label class="f"><span>Mục tiêu</span></label>
+      <div class="chips" id="goal"></div>
+    </section>
+
+    <section class="card">
+      <h2><span class="n">2</span>Phong cách &amp; hình ảnh</h2>
+      <div class="tiles" id="style"></div>
+      <label class="f"><span>Art direction (tuỳ chọn)</span><input type="text" id="artDirection" placeholder="VD: semi-realistic anime portraits, dark romantic, warm amber light"></label>
+      <label class="f"><span>Ảnh nhân vật / key visual</span></label>
+      <div class="drop" id="drop">Kéo thả ảnh vào đây hoặc bấm để chọn (PNG/JPG/WebP, nhiều ảnh)<input type="file" id="files" accept="image/*" multiple hidden></div>
+      <div class="thumbs" id="thumbs"></div>
+      <div class="row" style="margin-top:12px">
+        <label class="f"><span>Nguồn ảnh</span><select id="imageProvider"></select></label>
+        <label class="f"><span>Tỉ lệ ảnh tạo mới</span><select id="imageAspect"><option>3:4</option><option>9:16</option><option>16:9</option><option>1:1</option><option>4:3</option></select></label>
+      </div>
+      <label class="f"><span>Chữ ký góc màn hình (tuỳ chọn)</span><input type="text" id="signature" placeholder="Để trống = không ký"></label>
+    </section>
+
+    <section class="card">
+      <h2><span class="n">3</span>Kích thước, thời lượng &amp; ngôn ngữ</h2>
+      <label class="f"><span>Kích thước video (xuất đúng 1 video)</span></label>
+      <div class="tiles" id="format"></div>
+      <label class="f"><span>Thời lượng (giây)</span></label>
+      <div class="chips" id="duration"></div>
+      <div class="row">
+        <label class="f"><span>Ngôn ngữ (giọng đọc + chữ trên màn hình)</span><select id="language"></select></label>
+        <label class="f"><span>Phụ đề</span><select id="captions"></select></label>
+      </div>
+      <p class="note" id="langNote"></p>
+    </section>
+
+    <section class="card">
+      <h2><span class="n">4</span>Âm thanh</h2>
+      <div class="row">
+        <label class="f"><span>Giọng đọc (TTS)</span><select id="voiceProvider"></select></label>
+        <label class="f"><span>Tên giọng</span><select id="voiceName"></select></label>
+      </div>
+      <div class="row">
+        <label class="f"><span>Nhạc nền</span><select id="musicProvider"></select></label>
+        <label class="f"><span>Hiệu ứng âm thanh (SFX)</span><select id="sfxProvider"></select></label>
+      </div>
+      <div id="musicUpload" hidden>
+        <label class="f"><span>File nhạc (MP3/WAV, có bản quyền dùng cho video)</span><input type="file" id="musicFile" accept="audio/*"></label>
+      </div>
+      <label class="f"><span>Mood nhạc (tuỳ chọn)</span><input type="text" id="musicMood" placeholder="VD: dark cinematic hip-hop, 110 bpm"></label>
+      <details>
+        <summary>Nâng cao</summary>
+        <label class="f"><span>Model Claude cho bước dựng (để trống = mặc định)</span><input type="text" id="claudeModel" placeholder="VD: opus, sonnet"></label>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2><span class="n">5</span>API keys (lưu local tại ~/.multix/.env)</h2>
+      <div class="keys" id="keys"></div>
+      <div style="display:flex; gap:10px; align-items:center; margin-top:12px">
+        <button type="button" class="btn sm" id="saveKeys">Lưu key</button>
+        <span class="note" style="margin:0">Key chỉ lưu trên máy này (quyền 600), không hiển thị lại, không nằm trong project hay git.</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="warnbox" id="missing" hidden></div>
+      <p class="summary" id="summary"></p>
+      <button type="submit" class="btn primary" id="create">▶ TẠO VIDEO</button>
+      <p class="note">Bấm tạo sẽ dựng project mới trong <code>assets/videos/</code> và chạy Claude Code (headless) theo skill motion-video: viết kịch bản, tạo giọng/nhạc/SFX, dựng hình, render và kiểm tra. Mất khoảng 20–60 phút, tốn hạn mức Claude và các API đã chọn.</p>
+    </section>
+  </form>
+
+  <aside>
+    <section class="card">
+      <h2>Tiến trình</h2>
+      <div class="jobs" id="jobs"><p class="note">Chưa có job nào.</p></div>
+    </section>
+    <section class="card">
+      <h2 id="jobTitle">Log</h2>
+      <div class="log" id="log">Chọn một job để xem log.</div>
+      <div style="display:flex; gap:10px; margin-top:10px">
+        <button type="button" class="btn sm" id="cancel" hidden>✖ Huỷ job</button>
+      </div>
+      <div id="resumeBox" hidden style="margin-top:12px; border-top:1px solid var(--line); padding-top:12px">
+        <p class="note" id="resumeNote" style="margin:0 0 10px"></p>
+        <div class="row">
+          <label class="f"><span>Giọng đọc</span><select id="rVoiceProvider"></select></label>
+          <label class="f"><span>Tên giọng</span><select id="rVoiceName"></select></label>
+        </div>
+        <div class="row">
+          <label class="f"><span>Nhạc nền</span><select id="rMusicProvider"></select></label>
+          <label class="f"><span>SFX</span><select id="rSfxProvider"></select></label>
+        </div>
+        <button type="button" class="btn" id="resume" style="width:100%">↻ Chạy tiếp job này</button>
+      </div>
+      <div class="outs" id="outs"></div>
+      <video id="player" controls hidden></video>
+    </section>
+  </aside>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const TOKEN = "__STUDIO_TOKEN__";
+const $ = (s) => document.querySelector(s);
+const api = async (path, opts = {}) => {
+  const r = await fetch(path, { ...opts, headers: { "content-type": "application/json", "x-studio-token": TOKEN, ...(opts.headers || {}) } });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return data;
+};
+const toast = (msg) => { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 3500); };
+const state = { style: "comic-spiderverse", format: "16:9", duration: 60, goal: "", images: [], music: null };
+let CFG;
+
+const fill = (sel, items, val) => { $(sel).innerHTML = items.map((o) => `<option value="${o.id}">${o.label}</option>`).join(""); if (val) $(sel).value = val; };
+const chips = (sel, items, key, fmt = (x) => x) => {
+  $(sel).innerHTML = items.map((x) => `<button type="button" class="chip${state[key] === x ? " on" : ""}" data-v="${x}">${fmt(x)}</button>`).join("");
+  $(sel).onclick = (e) => { const b = e.target.closest(".chip"); if (!b) return; state[key] = isNaN(+b.dataset.v) ? b.dataset.v : +b.dataset.v; chips(sel, items, key, fmt); update(); };
+};
+const ratioBox = (id) => { const [w, h] = id.split(":").map(Number); const s = 34 / Math.max(w, h); return `<div class="ratio" style="width:${w * s}px;height:${h * s}px"></div>`; };
+function tiles(sel, items, key, render) {
+  $(sel).innerHTML = items.map((o) => `<div class="tile${state[key] === o.id ? " on" : ""}" data-v="${o.id}">${render(o)}</div>`).join("");
+  $(sel).onclick = (e) => { const t = e.target.closest(".tile"); if (!t) return; state[key] = t.dataset.v; tiles(sel, items, key, render); update(); };
+}
+
+function voiceNames(provSel, nameSel, val) {
+  const names = CFG.options.voiceNames[$(provSel).value] || [];
+  $(nameSel).innerHTML = names.map((n) => `<option>${n}</option>`).join("");
+  if (val && names.includes(val)) $(nameSel).value = val;
+}
+function showResume(meta) {
+  const can = ["failed", "interrupted", "cancelled"].includes(meta.status);
+  $("#resumeBox").hidden = !can;
+  if (!can) return;
+  $("#resumeNote").textContent = meta.result?.notes ? `Lần chạy trước: ${meta.result.notes}` : "Job chưa xong. Có thể đổi provider rồi chạy tiếp từ bước bị dừng.";
+  $("#rVoiceProvider").value = meta.brief.voiceProvider || "gemini";
+  voiceNames("#rVoiceProvider", "#rVoiceName", meta.brief.voiceName);
+  $("#rMusicProvider").value = meta.brief.musicProvider === "file" ? "fal" : meta.brief.musicProvider || "fal";
+  $("#rSfxProvider").value = meta.brief.sfxProvider || "fal";
+}
+
+function renderKeys() {
+  $("#keys").innerHTML = Object.entries(CFG.keys).map(([k, v]) => `
+    <div class="key"><div><code>${k}</code>${v ? `<span class="badge ok">đã có ${v}</span>` : `<span class="badge miss">chưa có</span>`}</div>
+    <input type="password" data-key="${k}" placeholder="${v ? "Dán key mới để thay (để trống = giữ)" : "Dán key"}"></div>`).join("");
+}
+
+function neededKeys() {
+  const pick = (list, id) => list.find((o) => o.id === id)?.key;
+  const imgProv = state.images.length && $("#imageProvider").value === "file" ? "file" : $("#imageProvider").value;
+  return [...new Set([pick(CFG.options.voice, $("#voiceProvider").value), pick(CFG.options.sfx, $("#sfxProvider").value), state.music ? null : pick(CFG.options.music, $("#musicProvider").value), "ELEVENLABS_API_KEY", pick(CFG.options.image, imgProv)].filter(Boolean))];
+}
+
+function update() {
+  const lang = $("#language").value;
+  const cap = $("#captions").value === "same" ? lang : $("#captions").value;
+  $("#langNote").textContent = lang === "en"
+    ? (cap === "en" ? "Tiếng Anh hoàn toàn: giọng đọc, chữ trên màn hình và phụ đề đều tiếng Anh, không có tiếng Việt." : cap === "none" ? "Giọng và chữ trên màn hình tiếng Anh, không phụ đề." : "Giọng và chữ trên màn hình tiếng Anh, phụ đề tiếng Việt.")
+    : (cap === "vi" ? "Tiếng Việt hoàn toàn: giọng đọc, chữ trên màn hình và phụ đề karaoke khớp từng từ." : cap === "none" ? "Giọng và chữ trên màn hình tiếng Việt, không phụ đề." : "Giọng và chữ trên màn hình tiếng Việt, phụ đề tiếng Anh.");
+  $("#musicUpload").hidden = $("#musicProvider").value !== "file";
+  const miss = neededKeys().filter((k) => !CFG.keys[k]);
+  $("#missing").hidden = !miss.length;
+  $("#missing").textContent = miss.length ? `Thiếu key cho lựa chọn hiện tại: ${miss.join(", ")} — nhập ở mục 5.` : "";
+  const fmt = CFG.options.formats.find((f) => f.id === state.format);
+  $("#summary").innerHTML = `Sẽ tạo <b>1 video ${fmt.label.split(" · ").slice(0, 2).join(" ")}</b>, khoảng <b>${state.duration} giây</b>, phong cách <b>${CFG.options.styles.find((s) => s.id === state.style).label}</b>, giọng <b>${lang.toUpperCase()}</b>, phụ đề <b>${cap === "none" ? "không" : cap.toUpperCase()}</b>, ${state.images.length} ảnh upload.`;
+}
+
+function renderThumbs() {
+  $("#thumbs").innerHTML = state.images.map((f, i) => `<div class="thumb"><img src="${f.data}" alt=""><i>c${i + 1}</i><button type="button" data-i="${i}" title="Bỏ ảnh">×</button></div>`).join("");
+  $("#thumbs").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; state.images.splice(+b.dataset.i, 1); renderThumbs(); update(); };
+}
+const readFile = (file) => new Promise((ok, fail) => { const r = new FileReader(); r.onload = () => ok({ name: file.name, data: r.result }); r.onerror = fail; r.readAsDataURL(file); });
+async function addFiles(list) {
+  for (const f of list) if (f.type.startsWith("image/")) state.images.push(await readFile(f));
+  renderThumbs(); update();
+}
+
+// ---------- jobs ----------
+let current = null, es = null;
+const stLabel = { queued: "chờ", running: "đang chạy", done: "xong", failed: "lỗi", interrupted: "gián đoạn", cancelled: "đã huỷ" };
+async function loadJobs() {
+  const list = await api("/api/jobs");
+  $("#jobs").innerHTML = list.length ? list.map((j) => `<div class="job${current === j.id ? " sel" : ""}" data-id="${j.id}"><div style="min-width:0"><div class="nm">${j.slug}</div><div class="mt">${j.format} · ${j.language} · ${new Date(j.created).toLocaleString("vi-VN")}</div></div><span class="st ${j.status}">${stLabel[j.status] || j.status}</span></div>`).join("") : `<p class="note">Chưa có job nào.</p>`;
+  $("#jobs").onclick = (e) => { const d = e.target.closest(".job"); if (d) openJob(d.dataset.id); };
+  return list;
+}
+function showOutputs(meta) {
+  const outs = meta.outputs || [];
+  $("#outs").innerHTML = outs.map((p) => `<a href="/files/${encodeURI(p.replace(/^assets\/videos\//, "assets/videos/"))}?t=${TOKEN}" download>⬇ ${p.split("/").pop()}</a>`).join("");
+  const social = outs.find((p) => p.endsWith("-social.mp4")) || outs[0];
+  $("#player").hidden = !social;
+  if (social) $("#player").src = `/files/${encodeURI(social)}?t=${TOKEN}`;
+}
+function openJob(id) {
+  current = id; if (es) es.close();
+  $("#log").textContent = ""; $("#outs").innerHTML = ""; $("#player").hidden = true;
+  es = new EventSource(`/api/jobs/${id}/events?t=${TOKEN}`);
+  es.onmessage = (e) => {
+    const d = JSON.parse(e.data);
+    if (d.line) { const log = $("#log"); const stick = log.scrollTop + log.clientHeight >= log.scrollHeight - 30; log.textContent += d.line + "\n"; if (stick) log.scrollTop = log.scrollHeight; }
+    if (d.status) {
+      $("#jobTitle").textContent = `Log · ${d.status.slug}`;
+      $("#cancel").hidden = !["running", "queued"].includes(d.status.status);
+      showResume(d.status);
+      if (d.status.status === "done" || d.status.outputs) showOutputs(d.status);
+      loadJobs();
+    }
+  };
+  loadJobs();
+}
+
+$("#resume").onclick = async () => {
+  if (!current) return;
+  const body = { voiceProvider: $("#rVoiceProvider").value, voiceName: $("#rVoiceName").value, musicProvider: $("#rMusicProvider").value, sfxProvider: $("#rSfxProvider").value };
+  try { await api(`/api/jobs/${current}/resume`, { method: "POST", body: JSON.stringify(body) }); toast("Đã xếp job chạy tiếp"); $("#resumeBox").hidden = true; }
+  catch (err) { toast(err.message); }
+};
+$("#cancel").onclick = async () => { if (current && confirm("Huỷ job này?")) { await api(`/api/jobs/${current}/cancel`, { method: "POST" }); toast("Đã huỷ job"); } };
+$("#saveKeys").onclick = async () => {
+  const body = {}; document.querySelectorAll("[data-key]").forEach((i) => { if (i.value.trim()) body[i.dataset.key] = i.value.trim(); });
+  if (!Object.keys(body).length) return toast("Chưa nhập key nào");
+  CFG.keys = (await api("/api/keys", { method: "POST", body: JSON.stringify(body) })).keys;
+  renderKeys(); update(); toast("Đã lưu key vào ~/.multix/.env");
+};
+
+$("#form").onsubmit = async (e) => {
+  e.preventDefault();
+  const miss = neededKeys().filter((k) => !CFG.keys[k]);
+  if (miss.length && !confirm(`Còn thiếu key: ${miss.join(", ")}. Vẫn tạo?`)) return;
+  if ($("#musicProvider").value === "file" && !state.music) return toast("Chọn file nhạc hoặc đổi nguồn nhạc");
+  const v = (id) => $(id).value.trim();
+  const brief = {
+    brand: v("#brand"), projectName: v("#projectName"), description: v("#description"),
+    features: v("#features").split("\n").map((s) => s.trim()).filter(Boolean), sourceUrl: v("#sourceUrl"), cta: v("#cta"), goal: state.goal,
+    style: state.style, artDirection: v("#artDirection"), signature: v("#signature"), imageProvider: $("#imageProvider").value, imageAspect: $("#imageAspect").value,
+    format: state.format, duration: state.duration, language: $("#language").value, captions: $("#captions").value,
+    voiceProvider: $("#voiceProvider").value, voiceName: $("#voiceName").value, musicProvider: $("#musicProvider").value, sfxProvider: $("#sfxProvider").value,
+    musicMood: v("#musicMood"), claudeModel: v("#claudeModel"),
+  };
+  $("#create").disabled = true;
+  try {
+    const job = await api("/api/jobs", { method: "POST", body: JSON.stringify({ brief, images: state.images, music: state.music }) });
+    toast(`Đã tạo job ${job.slug}`); openJob(job.id); window.scrollTo({ top: 0, behavior: "smooth" });
+  } catch (err) { toast(err.message); }
+  finally { $("#create").disabled = false; }
+};
+
+(async () => {
+  CFG = await api("/api/config");
+  $("#ws").textContent = CFG.workspace;
+  const O = CFG.options;
+  state.goal = O.goals[0];
+  chips("#goal", O.goals, "goal");
+  tiles("#style", O.styles, "style", (o) => `<div class="t">${o.label}</div><div class="d">${o.id === "glass-keynote" ? "Premium, bình tĩnh, rõ ràng" : "Ồn ào, vui, như vẽ tay"}</div>`);
+  tiles("#format", O.formats, "format", (o) => `${ratioBox(o.id)}<div class="t">${o.id}</div><div class="d">${o.label.split(" · ").slice(1).join(" · ")}</div>`);
+  chips("#duration", O.durations, "duration", (x) => `${x}s`);
+  fill("#language", O.languages, "en"); fill("#captions", O.captions, "same");
+  fill("#voiceProvider", O.voice, "gemini"); voiceNames("#voiceProvider", "#voiceName");
+  $("#voiceProvider").addEventListener("change", () => voiceNames("#voiceProvider", "#voiceName"));
+  fill("#rVoiceProvider", O.voice); fill("#rMusicProvider", O.music.filter((m) => m.id !== "file")); fill("#rSfxProvider", O.sfx);
+  $("#rVoiceProvider").addEventListener("change", () => voiceNames("#rVoiceProvider", "#rVoiceName"));
+  fill("#musicProvider", O.music, "fal"); fill("#sfxProvider", O.sfx, "fal"); fill("#imageProvider", O.image, "file");
+  ["#language", "#captions", "#voiceProvider", "#musicProvider", "#sfxProvider", "#imageProvider"].forEach((s) => $(s).addEventListener("change", update));
+  const drop = $("#drop");
+  drop.onclick = () => $("#files").click();
+  $("#files").onchange = (e) => addFiles(e.target.files);
+  drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("over"); };
+  drop.ondragleave = () => drop.classList.remove("over");
+  drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("over"); addFiles(e.dataTransfer.files); };
+  $("#musicFile").onchange = async (e) => { state.music = e.target.files[0] ? await readFile(e.target.files[0]) : null; };
+  renderKeys(); update();
+  const list = await loadJobs();
+  const live = list.find((j) => j.status === "running") || list[0];
+  if (live) openJob(live.id);
+})().catch((e) => { document.body.insertAdjacentHTML("afterbegin", `<p style="padding:20px;color:#ff5470">Không kết nối được server: ${e.message}</p>`); });
+</script>
+</body>
+</html>

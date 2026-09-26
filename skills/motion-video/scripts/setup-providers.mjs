@@ -23,6 +23,7 @@ const GROUPS = [
       { id: "gemini-lite", label: "Gemini 3.8 Flash Lite TTS", set: { provider: "gemini", model: "gemini-3.8-flash-lite-tts", voice: "Fenrir" }, keys: ["GEMINI_API_KEY"], note: "Nhanh/rẻ hơn, ít biểu cảm hơn." },
       { id: "elevenlabs", label: "ElevenLabs TTS (eleven_v3)", set: { provider: "elevenlabs", model: "eleven_v3", voice: "kdmDKE6EkgrWrrykO9Qt" }, keys: ["ELEVENLABS_API_KEY"], note: "Key cần quyền Text to Speech. Không nhận style prompt; đổi voice id để đổi chất giọng." },
       { id: "openai", label: "OpenAI gpt-4o-mini-tts", set: { provider: "openai", model: "gpt-4o-mini-tts", voice: "marin" }, keys: ["OPENAI_API_KEY"], note: "Style truyền qua --instructions." },
+      { id: "fal", label: "ElevenLabs eleven_v3 qua fal.ai", set: { provider: "fal", model: "fal-ai/elevenlabs/tts/eleven-v3", voice: "Brian" }, keys: ["FAL_KEY"], note: "Trả theo số dư fal, không bị giới hạn gói Free của Gemini/ElevenLabs. Voice: Brian, Rachel, Aria, Roger, Sarah, George…" },
     ],
   },
   {

@@ -1,6 +1,6 @@
 // Generates voice-over, sound effects and background music through the multix CLI,
 // using the providers chosen in data/providers.json (see <skill>/scripts/setup-providers.mjs):
-//   voice: gemini | elevenlabs | openai      sfx: elevenlabs | fal      music: elevenlabs | fal | file
+//   voice: gemini | elevenlabs | openai | fal      sfx: elevenlabs | fal      music: elevenlabs | fal | file
 // Run scripts/arrange-music.mjs afterwards to put the music's drops on the video's beats.
 // Usage: node scripts/generate-audio-assets.mjs <vo|sfx|music|all> [--force] [--only=id1,id2]
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -29,6 +29,9 @@ async function speak(text, style, out) {
     await multix(["elevenlabs", "tts", "--model", model, "--voice", voice, "--format", "mp3_44100_192", "--text", text, "--output", mp3]);
     await ffmpegCopy(mp3, out);
     rmSync(mp3, { force: true });
+  } else if (v.provider === "fal") {
+    // ElevenLabs v3 billed through fal.ai: no free-tier voice-library limits; no sentence-style direction
+    await fal(model || "fal-ai/elevenlabs/tts/eleven-v3", { text, voice, ...(P.language.voice === "vi" ? { language_code: "vi" } : {}) }, out);
   } else throw new Error(`voice provider "${v.provider}" is not supported`);
 }
 
@@ -82,7 +85,10 @@ async function composeMusic(plan, file) {
     console.log(log.split("\n").slice(-6).join("\n"));
   } else if (P.music.provider === "fal") {
     const compositionPlan = JSON.parse(readFileSync(join(root, "data", plan), "utf8"));
-    await fal(P.music.model || "fal-ai/elevenlabs/music", { composition_plan: compositionPlan, respect_sections_durations: true, force_instrumental: true, output_format: "mp3_44100_192" }, out);
+    // fal rejects sections shorter than 3 s and refuses force_instrumental together with a plan
+    // (the plan's negative styles already exclude vocals)
+    for (const s of compositionPlan.sections || []) s.duration_ms = Math.max(3000, s.duration_ms || 3000);
+    await fal(P.music.model || "fal-ai/elevenlabs/music", { composition_plan: compositionPlan, respect_sections_durations: true, output_format: "mp3_44100_192" }, out);
     console.log(`music ${file} -> ${out} (fal)`);
   } else throw new Error(`music provider "${P.music.provider}" is not supported`);
 }
@@ -91,7 +97,8 @@ async function composeMusic(plan, file) {
 async function genMusic() {
   mkdirSync(join(root, "assets/audio/music"), { recursive: true });
   await composeMusic("music-plan.json", "bgm-raw.mp3");
-  await composeMusic("outro-plan.json", "outro-raw.mp3");
+  // short ads without a calm ending simply have no outro-plan.json
+  if (existsSync(join(root, "data/outro-plan.json"))) await composeMusic("outro-plan.json", "outro-raw.mp3");
 }
 
 const jobs = { vo: genVo, sfx: genSfx, music: genMusic };

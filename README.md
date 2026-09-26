@@ -135,6 +135,22 @@ locations work, depending on the agent and the scope you want:
 | The `multix` CLI, authenticated with a Gemini key and an ElevenLabs key | Voice-over, sound effects, music composition plans and forced alignment. |
 | `npx --yes hyperframes@0.7.99` | Lint, check, snapshot, preview and render. No install step is needed. |
 
+### Studio (local web UI)
+
+Prefer a form over a chat? Start the studio from your workspace and open the printed URL:
+
+```bash
+node .agents/skills/motion-video/studio/server.mjs      # → http://127.0.0.1:4173
+```
+
+Fill in the product, description, feature list, source link and CTA; upload character images
+(and optionally a music file); pick the style, format (16:9, 9:16, 1:1, 4:5 — one video),
+duration, language (EN = English voice, on-screen text and captions; VN = Vietnamese) and the
+providers; save missing API keys; press **TẠO VIDEO**. Each job scaffolds `assets/videos/<slug>/`
+and runs Claude Code headless with this skill, streaming the log to the page and offering the
+finished MP4 for preview and download. The server listens on 127.0.0.1 only and every API call
+needs a per-run token; keys go to `~/.multix/.env` (mode 600) and are never sent back.
+
 ### Providers and keys
 
 Each video starts by choosing one provider per group — voice (TTS), sound effects, music,

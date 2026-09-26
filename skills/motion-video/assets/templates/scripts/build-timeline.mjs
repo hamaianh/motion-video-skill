@@ -195,10 +195,14 @@ if (!noAudio) {
   const graph = [];
   const FMT = "aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo";
   // main track, then the calm outro bed faded in under its tail
-  inputs.push(join(root, "assets/audio/music/outro-raw.mp3"));
-  graph.push(`[0:a]${FMT},atrim=0:${DURATION},volume=-5dB[main]`);
-  graph.push(`[1:a]${FMT},volume=-5dB,afade=t=in:d=2.5,adelay=delays=${Math.round(OUTRO_BED * 1000)}:all=1[bed]`);
-  graph.push(`[main][bed]amix=inputs=2:normalize=0:dropout_transition=0[mus]`);
+  // the calm outro bed is optional: short ads have no outro-raw.mp3 (or set OUTRO_BED = null)
+  const outroFile = join(root, "assets/audio/music/outro-raw.mp3");
+  if (OUTRO_BED != null && existsSync(outroFile)) {
+    inputs.push(outroFile);
+    graph.push(`[0:a]${FMT},atrim=0:${DURATION},volume=-5dB[main]`);
+    graph.push(`[1:a]${FMT},volume=-5dB,afade=t=in:d=2.5,adelay=delays=${Math.round(OUTRO_BED * 1000)}:all=1[bed]`);
+    graph.push(`[main][bed]amix=inputs=2:normalize=0:dropout_transition=0[mus]`);
+  } else graph.push(`[0:a]${FMT},atrim=0:${DURATION},apad=whole_dur=${DURATION},volume=-5dB[mus]`);
 
   // voice: one input per scene file, split into its line segments
   const voLabels = [];
@@ -259,8 +263,8 @@ if (!noAudio) {
   ff([...inputs.flatMap((f) => ["-i", f]), "-/filter_complex", graphFile, "-map", "[out]", "-c:a", "pcm_s16le", premix, "-map", "[env]", "-f", "f32le", envRaw, ...stemOut]);
   if (stems) console.log(`stems -> ${join(work, "stem-music.wav")}, ${join(work, "stem-voice.wav")}`);
 
-  // two-pass loudness normalization to -14 LUFS / -1.5 dBTP
-  const LN = "loudnorm=I=-14:TP=-1.5:LRA=11";
+  // two-pass loudness normalization to -14 LUFS / -2 dBTP
+  const LN = "loudnorm=I=-14:TP=-2:LRA=11"; // -2 dBTP target: the AAC encode adds up to ~0.6 dB, short mixes overshot -1
   const m = JSON.parse(/\{[\s\S]*?\}/.exec(stderrOf(["-i", premix, "-af", `${LN}:print_format=json`, "-f", "null", "-"]).split("[Parsed_loudnorm")[1])[0]);
   const pass2 = `${LN}:measured_I=${m.input_i}:measured_TP=${m.input_tp}:measured_LRA=${m.input_lra}:measured_thresh=${m.input_thresh}:offset=${m.target_offset}:linear=true`;
   const mixOut = join(root, "assets/audio/mix.m4a");

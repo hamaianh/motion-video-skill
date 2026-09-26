@@ -104,6 +104,10 @@ in chat, print them, or copy them into project files, plans or reports.
   scene windows, captions, mascot, renderer limits, signature.
 - `references/style-glass-keynote.md` / `references/style-comic-spiderverse.md`:
   tokens, fonts, layers, components, transitions and caption look per style.
+- `studio/server.mjs` (+ `studio/index.html`): local web page (127.0.0.1) to fill in a
+  brief — content, uploaded images, style, format, duration, language, providers, keys —
+  and press "Tạo video"; each job scaffolds a project and runs Claude Code headless with
+  this skill. Start it from the workspace: `node <skill>/studio/server.mjs`.
 - `references/providers-and-keys.md`: the seven setup groups (five providers, output format, language), their options,
   keys, permissions and the errors each one produces.
 - `scripts/setup-providers.mjs <project> [--show|--keys|--set g=opt[:model]]`:
