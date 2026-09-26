@@ -56,6 +56,9 @@
   .key { display: grid; grid-template-columns: 250px 1fr; gap: 10px; align-items: center; }
   @media (max-width: 600px) { .key { grid-template-columns: 1fr; } }
   .key code { font-size: 12px; }
+  .keyin { display: flex; gap: 8px; }
+  .keyin input { font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+  .eye { flex: none; width: 42px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel2); color: var(--text); cursor: pointer; font-size: 16px; }
   .badge { white-space: nowrap; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin-left: 6px; }
   .badge.ok { background: color-mix(in srgb, var(--ok) 20%, transparent); color: var(--ok); }
   .badge.miss { background: color-mix(in srgb, var(--err) 20%, transparent); color: var(--err); }
@@ -161,7 +164,7 @@
       <div class="keys" id="keys"></div>
       <div style="display:flex; gap:10px; align-items:center; margin-top:12px">
         <button type="button" class="btn sm" id="saveKeys">Lưu key</button>
-        <span class="note" style="margin:0">Key chỉ lưu trên máy này (quyền 600), không hiển thị lại, không nằm trong project hay git.</span>
+        <span class="note" style="margin:0">Key lưu trên máy này (~/.multix/.env, quyền 600), không nằm trong project hay git. Bấm 👁 để hiện toàn bộ key.</span>
       </div>
     </section>
 
@@ -243,10 +246,20 @@ function showResume(meta) {
   $("#rSfxProvider").value = meta.brief.sfxProvider || "fal";
 }
 
-function renderKeys() {
+let FULL_KEYS = {};
+async function renderKeys() {
+  try { FULL_KEYS = await api("/api/keys"); } catch { FULL_KEYS = {}; }
+  const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
   $("#keys").innerHTML = Object.entries(CFG.keys).map(([k, v]) => `
-    <div class="key"><div><code>${k}</code>${v ? `<span class="badge ok">đã có ${v}</span>` : `<span class="badge miss">chưa có</span>`}</div>
-    <input type="password" data-key="${k}" placeholder="${v ? "Dán key mới để thay (để trống = giữ)" : "Dán key"}"></div>`).join("");
+    <div class="key"><div><code>${k}</code>${v ? `<span class="badge ok">đã có</span>` : `<span class="badge miss">chưa có</span>`}</div>
+    <div class="keyin"><input type="password" data-key="${k}" value="${esc(FULL_KEYS[k] || "")}" placeholder="Dán key" spellcheck="false" autocomplete="off">
+    <button type="button" class="eye" data-eye="${k}" title="Hiện / ẩn key">👁</button></div></div>`).join("");
+  $("#keys").onclick = (e) => {
+    const b = e.target.closest("[data-eye]"); if (!b) return;
+    const i = document.querySelector(`[data-key="${b.dataset.eye}"]`);
+    i.type = i.type === "password" ? "text" : "password";
+    b.textContent = i.type === "password" ? "👁" : "🙈";
+  };
 }
 
 function neededKeys() {
@@ -321,10 +334,11 @@ $("#resume").onclick = async () => {
 };
 $("#cancel").onclick = async () => { if (current && confirm("Huỷ job này?")) { await api(`/api/jobs/${current}/cancel`, { method: "POST" }); toast("Đã huỷ job"); } };
 $("#saveKeys").onclick = async () => {
-  const body = {}; document.querySelectorAll("[data-key]").forEach((i) => { if (i.value.trim()) body[i.dataset.key] = i.value.trim(); });
-  if (!Object.keys(body).length) return toast("Chưa nhập key nào");
+  // send only keys that changed
+  const body = {}; document.querySelectorAll("[data-key]").forEach((i) => { const v = i.value.trim(); if (v && v !== (FULL_KEYS[i.dataset.key] || "")) body[i.dataset.key] = v; });
+  if (!Object.keys(body).length) return toast("Không có key nào thay đổi");
   CFG.keys = (await api("/api/keys", { method: "POST", body: JSON.stringify(body) })).keys;
-  renderKeys(); update(); toast("Đã lưu key vào ~/.multix/.env");
+  await renderKeys(); update(); toast("Đã lưu key vào ~/.multix/.env");
 };
 
 $("#form").onsubmit = async (e) => {

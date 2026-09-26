@@ -6,7 +6,8 @@
 //   node <skill>/studio/server.mjs [--port 4173] [--workspace <dir>]
 //
 // Binds to 127.0.0.1 only. Every API call needs the per-run token embedded in the page, so other
-// websites cannot drive it. API keys are written to ~/.multix/.env (mode 600) and never returned.
+// websites cannot drive it. API keys are written to ~/.multix/.env (mode 600); the full values are
+// returned only by the token-protected /api/keys endpoint that fills the key fields, never in logs.
 import { spawn, execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { chmodSync, cpSync, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync, appendFileSync } from "node:fs";
@@ -392,6 +393,12 @@ createServer(async (req, res) => {
     if (token !== TOKEN) return json(res, 403, { error: "Token không hợp lệ — tải lại trang." });
 
     if (req.method === "GET" && url.pathname === "/api/config") return json(res, 200, { options: OPTIONS, keys: keyStatus(), workspace: WORKSPACE });
+    // full key values for the key fields (same machine, same user that can read ~/.multix/.env)
+    if (req.method === "GET" && url.pathname === "/api/keys") {
+      const env = readEnv();
+      res.setHeader("cache-control", "no-store");
+      return json(res, 200, Object.fromEntries(KEY_NAMES.map((k) => [k, env[k] || ""])));
+    }
     if (req.method === "POST" && url.pathname === "/api/keys") {
       const body = JSON.parse(await readBody(req, 64 * 1024));
       for (const k of KEY_NAMES) if (typeof body[k] === "string" && body[k].trim()) writeEnvKey(k, body[k].trim());
