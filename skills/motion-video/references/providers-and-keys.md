@@ -4,7 +4,7 @@ Every new video starts by confirming one provider per group. The choice is saved
 `<project>/data/providers.json` (no secrets); keys live only in `~/.multix/.env` (mode 600).
 The pipeline scripts read `providers.json` through `scripts/multix-lib.mjs`.
 
-## The five groups
+## The six groups
 
 | # | Group | Options (`--set` id) | Key | Watch out |
 |---|---|---|---|---|
@@ -13,6 +13,14 @@ The pipeline scripts read `providers.json` through `scripts/multix-lib.mjs`.
 | 3 | Nhạc nền (Music) | `elevenlabs`, `fal` (fal-ai/elevenlabs/music), `file` | ELEVENLABS / FAL / — | ElevenLabs Music API is paid-plan only (Free answers 402). `file` = your own licensed track at `assets/audio/music/bgm-raw.mp3` (+ `outro-raw.mp3`). |
 | 4 | Căn thời gian từng từ | `elevenlabs` (forced alignment) | ELEVENLABS | Required; the key needs the Forced Alignment permission. |
 | 5 | Hình ảnh / nhân vật | `file`, `gemini`, `openai`, `codex`, `fal` (model id, e.g. fal-ai/flux/dev) | — / GEMINI / OPENAI / — / FAL | Gemini Free tier has an image quota of 0 (enable billing). `codex` uses the logged-in Codex CLI and its account quota. |
+| 6 | Kích thước video xuất | `16:9`, `9:16`, `1:1`, `4:5` (multi-select) | — | Each extra format needs its own LAYOUT and a snapshot review. |
+
+## Group 6: video output formats
+
+Not a provider: the formats `render-formats.mjs` renders. One or more of `16:9` (1920×1080),
+`9:16` (1080×1920, TikTok/Reels/Shorts), `1:1` (1080×1080, feed), `4:5` (1080×1350, feed).
+Saved as `output.formats`; set with `--set format=16:9,9:16,4:5`. Each extra format needs a
+`LAYOUT` table in the composition (see `composition-contract.md` → Output formats).
 
 ## Image aspect ratio
 

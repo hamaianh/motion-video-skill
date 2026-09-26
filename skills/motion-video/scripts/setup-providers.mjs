@@ -5,7 +5,7 @@
 //   node <skill>/scripts/setup-providers.mjs [project]            interactive: every group, then the keys it needs
 //   node <skill>/scripts/setup-providers.mjs [project] --keys     interactive: only the keys for the current choices
 //   node <skill>/scripts/setup-providers.mjs [project] --show     print choices + which keys are set/missing (safe for agents)
-//   node <skill>/scripts/setup-providers.mjs [project] --set voice=gemini music=fal image=gemini aspect=9:16 ...
+//   node <skill>/scripts/setup-providers.mjs [project] --set voice=gemini music=fal image=gemini aspect=9:16 format=16:9,9:16 ...
 //
 // Run the interactive modes in your own terminal: keys are typed hidden and never pass through a chat.
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -60,6 +60,14 @@ const GROUPS = [
       { id: "fal", label: "fal.ai (Flux… nhập model id)", set: { provider: "fal", model: "fal-ai/flux/dev" }, keys: ["FAL_KEY"], note: "Model id đổi được, vd fal-ai/flux-pro/v1.1. Cần số dư fal.ai.", askModel: true },
     ],
   },
+];
+
+// Group 6 is not a provider: the video formats render-formats.mjs renders (one composition, one LAYOUT per format).
+const FORMATS = [
+  { id: "16:9", label: "16:9 ngang — 1920×1080", note: "YouTube, web, màn hình ngang." },
+  { id: "9:16", label: "9:16 dọc — 1080×1920", note: "TikTok, Reels, Shorts, Stories. Chừa vùng UI: trên ~220 px, dưới ~420 px." },
+  { id: "1:1", label: "1:1 vuông — 1080×1080", note: "Feed Facebook/Instagram, quảng cáo carousel." },
+  { id: "4:5", label: "4:5 dọc — 1080×1350", note: "Feed Instagram/Facebook, chiếm nhiều màn hình nhất trong feed." },
 ];
 
 // Image aspect ratios every image provider can serve (OpenAI rounds to its nearest size).
@@ -117,6 +125,8 @@ function show() {
     const aspect = g.id === "image" && p.image?.aspect ? ` · tỉ lệ ${p.image.aspect}` : "";
     console.log(`  ${g.title}\n     → ${o ? o.label : p[g.id] ? JSON.stringify(p[g.id]) : "(chưa chọn — dùng mặc định)"}${model}${aspect}`);
   }
+  const fm = p.output?.formats || ["16:9"];
+  console.log(`  6. Kích thước video xuất\n     → ${fm.map((id) => FORMATS.find((f) => f.id === id)?.label || id).join(" · ")}`);
   const keys = neededKeys(p);
   console.log(`\nKey cần cho lựa chọn hiện tại (${envFile}):`);
   if (!keys.length) console.log("  (không cần key)");
@@ -129,6 +139,13 @@ function applySets() {
   const p = readProviders();
   for (const s of sets) {
     const [group, value] = s.split("=");
+    if (group === "format") {
+      const list = value.split(",").filter(Boolean);
+      const bad = list.filter((x) => !FORMATS.some((f) => f.id === x));
+      if (!list.length || bad.length) throw new Error(`format must be a comma list of ${FORMATS.map((f) => f.id).join(", ")}`);
+      p.output = { formats: list };
+      continue;
+    }
     if (group === "aspect") {
       if (!ASPECTS.includes(value)) throw new Error(`aspect must be one of ${ASPECTS.join(", ")}`);
       p.image = { ...(p.image || { provider: "file" }), aspect: value };
@@ -188,6 +205,13 @@ async function interactive(keysOnly) {
         p[g.id].aspect = ASPECTS[(parseInt(a, 10) || cur) - 1] || ASPECTS[cur - 1];
       }
     }
+    const curF = p.output?.formats || ["16:9"];
+    console.log(`\n6. Kích thước video xuất (chọn một hoặc nhiều, vd 1,2)`);
+    FORMATS.forEach((f, i) => console.log(`  ${i + 1}) ${f.label}${curF.includes(f.id) ? "  [đang chọn]" : ""}\n       ${f.note}`));
+    const defF = curF.map((id) => FORMATS.findIndex((f) => f.id === id) + 1).filter(Boolean).join(",");
+    const af = await ask(`  Chọn [${defF}]: `);
+    const picked = (af || defF).split(/[,\s]+/).map((x) => FORMATS[parseInt(x, 10) - 1]?.id).filter(Boolean);
+    p.output = { formats: [...new Set(picked.length ? picked : curF)] };
     writeProviders(p);
     console.log(`\n✓ Đã lưu lựa chọn vào ${provFile}`);
   }

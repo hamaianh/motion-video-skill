@@ -17,8 +17,9 @@
       :root { --bg: #070817; --ink: #f5f3ff; --accent: #c4b5fd; }
       * { box-sizing: border-box; }
       html, body { margin: 0; background: var(--bg); }
+      /* #root takes its size from data-width/height (scripts/set-format.mjs); layers fill it */
       #root { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); color: var(--ink); font-family: "Be Vietnam Pro", sans-serif; }
-      .layer { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }
+      .layer { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
       .abs { position: absolute; }
       .scene { opacity: 0; visibility: hidden; }
       .hl .w { display: inline-block; }
@@ -26,7 +27,7 @@
       #flash { background: #fff; opacity: 0; pointer-events: none; }
       #fade { background: #000; opacity: 1; pointer-events: none; }
       /* captions stay left of the signature; bottom band is reserved for them */
-      .cap { position: absolute; left: 0; width: 1660px; bottom: 44px; display: flex; justify-content: center; }
+      .cap { position: absolute; left: 0; width: 1660px; bottom: 44px; display: flex; justify-content: center; } /* per format: CAPTION_BAND below */
       .cap-box { max-width: 1400px; padding: 12px 28px; border-radius: 18px; background: rgba(10, 8, 30, 0.72); font: 700 44px/1.3 "Be Vietnam Pro"; text-align: center; }
       .cw { color: rgba(255, 255, 255, 0.5); }
       #sig { right: 40px; bottom: 22px; width: 250px; height: 130px; }
@@ -35,7 +36,7 @@
     </style>
   </head>
   <body>
-    <div id="root" data-composition-id="main" data-start="0" data-duration="60" data-width="1920" data-height="1080">
+    <div id="root" data-composition-id="main" data-start="0" data-duration="60" data-width="1920" data-height="1080" data-format="16x9">
       <div id="bg" class="layer"></div>
       <div id="pulse" class="layer">
         <div id="stage" class="layer">
@@ -86,6 +87,45 @@
           t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
           return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
         };
+
+        // ---------- output format: one composition, one LAYOUT per format (set by scripts/set-format.mjs) ----------
+        // Author every position inline for 16:9, then override only what moves in the other formats.
+        // Keys are CSS selectors; values are style props (numbers = px) plus `r` (rotation in degrees)
+        // and `display: "none"` to drop an element in a format that has no room for it.
+        const rootEl = $("#root");
+        const FMT = rootEl.dataset.format || "16x9";
+        const FW = +rootEl.dataset.width;
+        const FH = +rootEl.dataset.height;
+        rootEl.style.width = `${FW}px`;
+        rootEl.style.height = `${FH}px`;
+        const LAYOUT = {
+          "9x16": {
+            "#sc01 .hl": { left: 60, top: 760, width: 960, fontSize: 120 },
+            "#sc02 .hl": { left: 60, top: 760, width: 960, fontSize: 96 },
+          },
+          "1x1": {
+            "#sc01 .hl": { left: 60, top: 420, width: 960, fontSize: 110 },
+            "#sc02 .hl": { left: 60, top: 420, width: 960, fontSize: 90 },
+          },
+        };
+        // 4:5 reuses the square layout, pushed down to the middle of the taller frame
+        const FALLBACK = { "4x5": { from: "1x1", dy: (FH - 1080) / 2 } };
+        const px = (k, v) => (typeof v === "number" && !/^(opacity|zIndex|fontWeight|lineHeight|flex)$/.test(k) ? `${v}px` : v);
+        const applyLayout = () => {
+          const fb = FALLBACK[FMT];
+          const table = LAYOUT[FMT] || (fb && LAYOUT[fb.from]) || {};
+          for (const [sel, props] of Object.entries(table)) {
+            $$(sel).forEach((e) => {
+              for (const [k, v] of Object.entries(props)) {
+                if (k === "r") e.dataset.r = v;
+                else e.style[k] = px(k, k === "top" && fb && !LAYOUT[FMT] && e.parentElement.classList.contains("scene") ? v + fb.dy : v);
+              }
+            });
+          }
+        };
+        applyLayout();
+        // caption band per format: keep it clear of platform UI (TikTok/Reels cover the bottom ~420 px of 9:16)
+        const CAPTION_BAND = { "16x9": { bottom: 44, width: 1660, maxWidth: 1400 }, "9x16": { bottom: 420, width: 1080, maxWidth: 960 }, "1x1": { bottom: 30, width: 1080, maxWidth: 1000 }, "4x5": { bottom: 40, width: 1080, maxWidth: 1000 } }[FMT];
 
         // headline words become spans for staggered entrances (build the DOM before any tween)
         $$(".hl").forEach((h) => (h.innerHTML = h.textContent.trim().split(/\s+/).map((w) => `<span class="w">${w}</span>`).join(" ")));
@@ -144,8 +184,11 @@
         T.captions.forEach((c) => {
           const cap = document.createElement("div");
           cap.className = "cap";
+          cap.style.bottom = `${CAPTION_BAND.bottom}px`;
+          cap.style.width = `${CAPTION_BAND.width}px`;
           const box = document.createElement("div");
           box.className = "cap-box";
+          box.style.maxWidth = `${CAPTION_BAND.maxWidth}px`;
           const spans = c.words.map(([txt], j) => {
             if (j) box.append(" ");
             const s = document.createElement("span");

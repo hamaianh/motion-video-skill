@@ -48,7 +48,8 @@ This skill does NOT handle:
 ## How to work
 
 0. Confirm providers and keys, grouped so nothing is forgotten: voice (TTS),
-   SFX, music, word alignment, images. Follow `references/providers-and-keys.md`:
+   SFX, music, word alignment, images (+ image aspect), and group 6, the video
+   output formats (16:9, 9:16, 1:1, 4:5; several allowed). Follow `references/providers-and-keys.md`:
    run `scripts/setup-providers.mjs <project> --show`, ask one question per
    group, save with `--set`, and have the user enter missing keys themselves with
    `--keys` in their own terminal. Do this on every new video, even if a previous
@@ -68,7 +69,9 @@ This skill does NOT handle:
    splice bars so the drops land where the script needs them, verify the splice,
    and measure the voice/music balance.
 5. Build `index.html` with `references/composition-contract.md` and the chosen
-   style reference, starting from `assets/templates/index-skeleton.html`. When a
+   style reference, starting from `assets/templates/index-skeleton.html`. Author
+   16:9 first, then a `LAYOUT` table per extra output format (contract → Output
+   formats), and review snapshots of every format with `render-formats.mjs --snapshot`. When a
    scene type repeats (stats, diagrams, charts, terminal, graph, outro), follow
    the demo's choreography for that scene instead of inventing a new one.
 6. Finish only when every check in "Done when" passes; report measured numbers,
@@ -79,10 +82,12 @@ in chat, print them, or copy them into project files, plans or reports.
 
 ## Done when
 
-- `hyperframes lint` and `check` pass; snapshots of every scene were reviewed.
+- `hyperframes lint` and `check` pass in every chosen format; snapshots of every
+  scene were reviewed in every format.
 - `verify-arrangement.py` reports every segment within ±2 ms and
   `measure-mix-balance.py` shows the music ~4–6 dB under speech.
-- ffprobe: 1920×1080, 30 fps, expected duration, AAC 48 kHz stereo;
+- ffprobe per format (1920×1080, 1080×1920, 1080×1080, 1080×1350), 30 fps,
+  expected duration, AAC 48 kHz stereo;
   ebur128 ≈ −14 LUFS with peak ≤ −1 dBFS; blackdetect finds nothing outside fades.
 - `build-timeline` printed no clip/overlap/missing-word warnings.
 - On-screen facts trace to the sources collected in step 1.
@@ -97,10 +102,12 @@ in chat, print them, or copy them into project files, plans or reports.
   scene windows, captions, mascot, renderer limits, signature.
 - `references/style-glass-keynote.md` / `references/style-comic-spiderverse.md`:
   tokens, fonts, layers, components, transitions and caption look per style.
-- `references/providers-and-keys.md`: the five provider groups, their options,
+- `references/providers-and-keys.md`: the six setup groups (five providers + output formats), their options,
   keys, permissions and the errors each one produces.
 - `scripts/setup-providers.mjs <project> [--show|--keys|--set g=opt[:model]]`:
   choose a provider per group (`data/providers.json`) and store keys hidden.
+- `assets/templates/scripts/set-format.mjs` / `render-formats.mjs`: switch the
+  composition to one output format; render and verify all chosen formats.
 - `scripts/fit-beat-grid.py <music> [--min-bpm N --max-bpm N]`: BPM, BEAT0 and a
   per-bar kick/energy table.
 - `scripts/verify-arrangement.py <project> [--tolerance-ms 2]`: splice lag per

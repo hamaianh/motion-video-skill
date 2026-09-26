@@ -146,6 +146,10 @@ node skills/motion-video/scripts/setup-providers.mjs <project>          # choose
 node skills/motion-video/scripts/setup-providers.mjs <project> --show   # current choices, missing keys
 ```
 
+Group 6 picks the video output formats — 16:9 (1920×1080), 9:16 (1080×1920), 1:1
+(1080×1080) and/or 4:5 (1080×1350). One composition carries a layout table per format, and
+`scripts/render-formats.mjs` renders, remuxes, encodes and verifies every chosen format.
+
 See `skills/motion-video/references/providers-and-keys.md` for options, required key
 permissions and common errors (free-tier limits, paid-only music, empty balances).
 

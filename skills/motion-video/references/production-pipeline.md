@@ -115,6 +115,18 @@ Look at every scene's busiest moment, the caption band and the signature.
 
 ## 8. Render, restore the mix, verify
 
+For every chosen format in one go (recommended):
+
+```bash
+node ./scripts/render-formats.mjs --snapshot=2,18.5,40,80   # all formats: lint + check + snapshots/<fmt>/
+node ./scripts/render-formats.mjs                           # all formats: render, remux, social encode, verify
+node ./scripts/render-formats.mjs --formats=9:16            # just one
+```
+
+Outputs `renders/<slug>-<fmt>.mp4` and `renders/<slug>-<fmt>-social.mp4`, then prints a table of
+size, fps, duration, LUFS, true peak and black segments per format. The manual commands below
+are what it runs for a single format.
+
 ```bash
 npx --yes hyperframes@0.7.99 render -q high -f 30 --strict -o renders/<slug>.mp4
 ffmpeg -y -i renders/<slug>.mp4 -i ./assets/audio/mix.m4a -map 0:v:0 -map 1:a:0 -c copy -movflags +faststart renders/out.mp4

@@ -15,6 +15,7 @@ const DEFAULTS = {
   music: { provider: "elevenlabs" },
   align: { provider: "elevenlabs" },
   image: { provider: "file" },
+  output: { formats: ["16:9"] }, // video formats to render: 16:9, 9:16, 1:1, 4:5
 };
 
 export function loadProviders() {

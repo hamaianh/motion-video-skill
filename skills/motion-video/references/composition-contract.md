@@ -17,6 +17,39 @@ at `assets/templates/index-skeleton.html` implements all of them.
 - GSAP from `cdn.jsdelivr.net/npm/gsap@3.14.2`; fonts as local TTF files with
   `font-display: block`.
 
+## Output formats
+
+One `index.html` renders every format chosen in setup group 6 (`output.formats` in
+`data/providers.json`): 16:9 1920×1080, 9:16 1080×1920, 1:1 1080×1080, 4:5 1080×1350.
+
+- `scripts/set-format.mjs <aspect>` rewrites `#root` `data-width` / `data-height` /
+  `data-format` (`16x9`, `9x16`, `1x1`, `4x5`), `data-resolution` and the viewport.
+  `scripts/render-formats.mjs` loops over the formats (lint, check, snapshot or render,
+  remux, social encode, verify) and switches back to the first one at the end.
+- Size layers with `100%`, never `1920px`; set `#root` size from its data attributes;
+  centre oversized decor (sunburst) from `FW`/`FH`; use `cover` for full-frame PNGs.
+- Author positions inline for 16:9, then add a `LAYOUT[format]` table of overrides:
+  selector → style props (numbers become px), `r` for rotation, `display: "none"` to drop
+  an element that has no room. Apply it after generated DOM exists (bars, rows, spans) and
+  before the `data-r` rotations and the first tween. Scene children can be addressed as
+  `#scNN > :nth-child(k)`; list what each index is in a comment.
+- `4x5` falls back to the `1x1` table shifted down by `(FH - 1080) / 2` unless it has its own.
+- Anything computed from positions (a selector ring, connectors) must read the element's
+  laid-out style, not 16:9 constants.
+- Wrapped headlines need more leading than the one-line 16:9 titles (`line-height: 1.25`
+  outside 16:9) or `check` flags the lines as overlapping.
+
+| Format | Content zone | Caption band | HUD |
+|---|---|---|---|
+| 16:9 | full frame | bottom 36–44 px, box ≤ 1540 px | top-left or top-right |
+| 9:16 | y 220–1360 (TikTok/Reels UI covers the top ~220 px and bottom ~420 px, and the right ~120 px low down) | `bottom: 420px`, box ≤ 960 px | top-right, y ≈ 130 |
+| 1:1 | y 40–900 | bottom 30 px, box ≤ 1000 px | top-right; keep titles ≤ 660 px wide so they clear it |
+| 4:5 | 1:1 zone shifted down 135 px | bottom 40 px, box ≤ 1000 px | top-right |
+
+Vertical layouts stack what 16:9 puts side by side: 2×2 card grids instead of a row of four,
+brains/options as full-width rows, portrait above text. Review snapshots of every format;
+`check` passing is necessary but does not catch a cramped or empty-looking frame.
+
 ## Determinism
 
 - All times come from `window.TIMING` (injected between `/*TIMING:BEGIN*/` and
